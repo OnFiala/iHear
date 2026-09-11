@@ -1,2 +1,4 @@
-import {PatientHome} from '@/components/patient';
-export default function Page(){return <PatientHome/>;}
+import { PatientHome } from "@/components/patient";
+export default function Page() {
+  return <PatientHome />;
+}

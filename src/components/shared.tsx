@@ -1,27 +1,295 @@
-'use client';
-import Link from 'next/link';
-import {ArrowUpRight,AudioLines,Check,CircleAlert,Clock3,LoaderCircle} from 'lucide-react';
-import type {Analysis,ListeningEvent,ProfileInput} from '@/lib/types';
-import {dateLabel} from '@/lib/client/api';
-export function Brand(){return <Link href="/" className="brand" aria-label="iHear home"><span className="brand-icon"><AudioLines size={24} strokeWidth={1.6}/></span>iHear<span className="brand-dot">.</span></Link>;}
-export function Header({patient=false}:{patient?:boolean}){return <header className="site-header"><Brand/><nav aria-label="Main navigation">{patient?<Link href="/app/pair" className="quiet-link">Pair a profile</Link>:<><Link href="/#how-it-works" className="desktop-link">How it works</Link><Link href="/app" className="quiet-link">Patient app</Link><Link href="/clinic" className="button small">Open clinician demo <ArrowUpRight size={17}/></Link></>}</nav></header>;}
-export function Footer(){return <footer className="site-footer"><span>iHear · A little more understanding.</span><span>Illustrative demo. Clinical interpretation stays with your clinician.</span></footer>;}
-export function ErrorBox({message}:{message:string}){return <div className="notice error" role="alert"><CircleAlert size={20}/><span>{message}</span></div>;}
-export function Loading({label='Loading your space…'}:{label?:string}){return <div className="loading" role="status"><LoaderCircle className="spin" size={24}/>{label}</div>;}
-export function Status({value}:{value:string}){const clean=value.replaceAll('_',' ').replaceAll('-',' ');return <span className={'status '+(value==='ready'?'ready':value==='failed'?'failed':'')} >{value==='ready'?<Check size={13}/>:<Clock3 size={13}/>} {clean}</span>;}
-export function EventList({events,patient=false}:{events:ListeningEvent[];patient?:boolean}){return <div className="event-list">{events.map(event=><Link className="event-row" key={event.id} href={patient?`/app/events/${event.id}`:`#event-${event.id}`}><span className={'moment-icon '+event.kind}>{event.kind==='understood'?<Check size={22}/>:<AudioLines size={22}/>}</span><span className="event-description"><strong>{event.kind==='understood'?'I understand':'I don’t understand'}</strong><span>{event.difficulty||'A positive listening moment'} · {dateLabel(event.capturedAt)}</span></span><Status value={event.status}/></Link>)}</div>;}
-export function Audiogram({data}:{data:ProfileInput['audiogram']}){
- const y=(db:number)=>35+(db+10)/130*170;const x=(i:number)=>60+i*62;
- return <figure className="chart"><svg viewBox="0 0 420 270" role="img" aria-label="Clinician-entered synthetic audiogram. Left ear shown with crosses, right ear with circles. Hearing level in dB HL.">
- <text x="12" y="16" className="axis-label">Hearing level (dB HL)</text>
- {[-10,20,50,80,110].map(db=><g key={db}><line x1="48" x2="390" y1={y(db)} y2={y(db)} className="grid-line"/><text x="38" y={y(db)+4} textAnchor="end" className="axis-label">{db}</text></g>)}
- {data.frequencies.map((hz,i)=><text key={hz} x={x(i)} y="232" textAnchor="middle" className="axis-label">{hz>=1000?hz/1000+'k':hz}</text>)}
- <polyline fill="none" stroke="#35657e" strokeWidth="2" points={data.left.map((db,i)=>`${x(i)},${y(db)}`).join(' ')}/><polyline fill="none" stroke="#99533d" strokeWidth="2" points={data.right.map((db,i)=>`${x(i)},${y(db)}`).join(' ')}/>
- {data.left.map((db,i)=><path key={'l'+i} d={`M${x(i)-4},${y(db)-4}l8,8m-8,0l8,-8`} stroke="#35657e" strokeWidth="2"/>)}{data.right.map((db,i)=><circle key={'r'+i} cx={x(i)} cy={y(db)} r="4" fill="var(--surface-solid)" stroke="#99533d" strokeWidth="2"/>)}
- <text x="150" y="257" className="axis-label">Frequency (Hz)</text></svg><figcaption><span>× Left ear</span><span>○ Right ear</span><span>Synthetic, entered by clinician</span></figcaption></figure>;
+"use client";
+import Link from "next/link";
+import {
+  ArrowUpRight,
+  AudioLines,
+  Check,
+  CircleAlert,
+  Clock3,
+  LoaderCircle,
+} from "lucide-react";
+import type { Analysis, ListeningEvent, ProfileInput } from "@/lib/types";
+import { dateLabel } from "@/lib/client/api";
+export function Brand() {
+  return (
+    <Link href="/" className="brand" aria-label="iHear home">
+      <span className="brand-icon">
+        <AudioLines size={24} strokeWidth={1.6} />
+      </span>
+      iHear<span className="brand-dot">.</span>
+    </Link>
+  );
 }
-export function AcousticResult({analysis}:{analysis:Analysis}){return <div className="acoustic-result"><div className="metric-grid"><div><span>Sample duration</span><strong>{analysis.duration_seconds.toFixed(1)} <small>s</small></strong></div><div><span>Native sample rate</span><strong>{(analysis.sample_rate/1000).toFixed(1)} <small>kHz</small></strong></div><div><span>Digital RMS level</span><strong>{analysis.rms_dbfs===null?'Silence':analysis.rms_dbfs.toFixed(1)} <small>{analysis.rms_dbfs!==null?'dBFS':''}</small></strong></div></div>
- <h4>Relative spectral energy</h4><p className="caption">Calculated from this phone sample. This is not calibrated sound pressure or hearing level.</p><div className="band-chart" role="img" aria-label="Relative frequency-band energy in the recording">{analysis.bands.map(b=><div key={b.low_hz} className="band"><span className="band-value">{(b.relative_energy*100).toFixed(1)}%</span><div className="band-track"><span style={{height:Math.max(1,b.relative_energy*100)+'%'}}/></div><span className="band-label">{b.low_hz>=1000?b.low_hz/1000+'k':b.low_hz}–{b.high_hz>=1000?b.high_hz/1000+'k':b.high_hz}</span></div>)}</div>
- {analysis.quality_flags?.length>0&&<div className="notice">Quality notes: {analysis.quality_flags.join(', ').replaceAll('_',' ')}</div>}
- <div className="model-results"><div><h4>Estimated speech activity</h4><p>{analysis.speech_activity.status==='ready'&&typeof analysis.speech_activity.fraction==='number'?`${(analysis.speech_activity.fraction*100).toFixed(0)}% of the sample`:analysis.speech_activity.status.replaceAll('_',' ')}</p><span className="caption">Silero VAD estimate, not a transcript.</span></div><div><h4>Estimated acoustic categories</h4><p>{analysis.acoustic_categories.categories?.map(c=>`${c.label} (${(c.score*100).toFixed(0)}%)`).join(' · ')||analysis.acoustic_categories.status.replaceAll('_',' ')}</p><span className="caption">YAMNet model scores, not certain identifications.</span></div></div>
- </div>;}
+export function Header({ patient = false }: { patient?: boolean }) {
+  return (
+    <header className="site-header">
+      <Brand />
+      <nav aria-label="Main navigation">
+        {patient ? (
+          <Link href="/app/pair" className="quiet-link">
+            Pair a profile
+          </Link>
+        ) : (
+          <>
+            <Link href="/#how-it-works" className="desktop-link">
+              How it works
+            </Link>
+            <Link href="/app" className="quiet-link">
+              Patient app
+            </Link>
+            <Link href="/clinic" className="button small">
+              Open clinician demo <ArrowUpRight size={17} />
+            </Link>
+          </>
+        )}
+      </nav>
+    </header>
+  );
+}
+export function Footer() {
+  return (
+    <footer className="site-footer">
+      <span>iHear · A little more understanding.</span>
+      <span>
+        Illustrative demo. Clinical interpretation stays with your clinician.
+      </span>
+    </footer>
+  );
+}
+export function ErrorBox({ message }: { message: string }) {
+  return (
+    <div className="notice error" role="alert">
+      <CircleAlert size={20} />
+      <span>{message}</span>
+    </div>
+  );
+}
+export function Loading({ label = "Loading your space…" }: { label?: string }) {
+  return (
+    <div className="loading" role="status">
+      <LoaderCircle className="spin" size={24} />
+      {label}
+    </div>
+  );
+}
+export function Status({ value }: { value: string }) {
+  const clean = value.replaceAll("_", " ").replaceAll("-", " ");
+  return (
+    <span
+      className={
+        "status " +
+        (value === "ready" ? "ready" : value === "failed" ? "failed" : "")
+      }
+    >
+      {value === "ready" ? <Check size={13} /> : <Clock3 size={13} />} {clean}
+    </span>
+  );
+}
+export function EventList({
+  events,
+  patient = false,
+}: {
+  events: ListeningEvent[];
+  patient?: boolean;
+}) {
+  return (
+    <div className="event-list">
+      {events.map((event) => (
+        <Link
+          className="event-row"
+          key={event.id}
+          href={patient ? `/app/events/${event.id}` : `#event-${event.id}`}
+        >
+          <span className={"moment-icon " + event.kind}>
+            {event.kind === "understood" ? (
+              <Check size={22} />
+            ) : (
+              <AudioLines size={22} />
+            )}
+          </span>
+          <span className="event-description">
+            <strong>
+              {event.kind === "understood"
+                ? "I understand"
+                : "I don’t understand"}
+            </strong>
+            <span>
+              {event.difficulty || "A positive listening moment"} ·{" "}
+              {dateLabel(event.capturedAt)}
+            </span>
+          </span>
+          <Status value={event.status} />
+        </Link>
+      ))}
+    </div>
+  );
+}
+export function Audiogram({ data }: { data: ProfileInput["audiogram"] }) {
+  const y = (db: number) => 35 + ((db + 10) / 130) * 170;
+  const x = (i: number) => 60 + i * 62;
+  return (
+    <figure className="chart">
+      <svg
+        viewBox="0 0 420 270"
+        role="img"
+        aria-label="Clinician-entered synthetic audiogram. Left ear shown with crosses, right ear with circles. Hearing level in dB HL."
+      >
+        <text x="12" y="16" className="axis-label">
+          Hearing level (dB HL)
+        </text>
+        {[-10, 20, 50, 80, 110].map((db) => (
+          <g key={db}>
+            <line
+              x1="48"
+              x2="390"
+              y1={y(db)}
+              y2={y(db)}
+              className="grid-line"
+            />
+            <text x="38" y={y(db) + 4} textAnchor="end" className="axis-label">
+              {db}
+            </text>
+          </g>
+        ))}
+        {data.frequencies.map((hz, i) => (
+          <text
+            key={hz}
+            x={x(i)}
+            y="232"
+            textAnchor="middle"
+            className="axis-label"
+          >
+            {hz >= 1000 ? hz / 1000 + "k" : hz}
+          </text>
+        ))}
+        <polyline
+          fill="none"
+          stroke="#35657e"
+          strokeWidth="2"
+          points={data.left.map((db, i) => `${x(i)},${y(db)}`).join(" ")}
+        />
+        <polyline
+          fill="none"
+          stroke="#99533d"
+          strokeWidth="2"
+          points={data.right.map((db, i) => `${x(i)},${y(db)}`).join(" ")}
+        />
+        {data.left.map((db, i) => (
+          <path
+            key={"l" + i}
+            d={`M${x(i) - 4},${y(db) - 4}l8,8m-8,0l8,-8`}
+            stroke="#35657e"
+            strokeWidth="2"
+          />
+        ))}
+        {data.right.map((db, i) => (
+          <circle
+            key={"r" + i}
+            cx={x(i)}
+            cy={y(db)}
+            r="4"
+            fill="var(--surface-solid)"
+            stroke="#99533d"
+            strokeWidth="2"
+          />
+        ))}
+        <text x="150" y="257" className="axis-label">
+          Frequency (Hz)
+        </text>
+      </svg>
+      <figcaption>
+        <span>× Left ear</span>
+        <span>○ Right ear</span>
+        <span>Synthetic, entered by clinician</span>
+      </figcaption>
+    </figure>
+  );
+}
+export function AcousticResult({ analysis }: { analysis: Analysis }) {
+  return (
+    <div className="acoustic-result">
+      <div className="metric-grid">
+        <div>
+          <span>Sample duration</span>
+          <strong>
+            {analysis.duration_seconds.toFixed(1)} <small>s</small>
+          </strong>
+        </div>
+        <div>
+          <span>Native sample rate</span>
+          <strong>
+            {(analysis.sample_rate / 1000).toFixed(1)} <small>kHz</small>
+          </strong>
+        </div>
+        <div>
+          <span>Digital RMS level</span>
+          <strong>
+            {analysis.rms_dbfs === null
+              ? "Silence"
+              : analysis.rms_dbfs.toFixed(1)}{" "}
+            <small>{analysis.rms_dbfs !== null ? "dBFS" : ""}</small>
+          </strong>
+        </div>
+      </div>
+      <h4>Relative spectral energy</h4>
+      <p className="caption">
+        Calculated from this phone sample. This is not calibrated sound pressure
+        or hearing level.
+      </p>
+      <div
+        className="band-chart"
+        role="img"
+        aria-label="Relative frequency-band energy in the recording"
+      >
+        {analysis.bands.map((b) => (
+          <div key={b.low_hz} className="band">
+            <span className="band-value">
+              {(b.relative_energy * 100).toFixed(1)}%
+            </span>
+            <div className="band-track">
+              <span
+                style={{ height: Math.max(1, b.relative_energy * 100) + "%" }}
+              />
+            </div>
+            <span className="band-label">
+              {b.low_hz >= 1000 ? b.low_hz / 1000 + "k" : b.low_hz}–
+              {b.high_hz >= 1000 ? b.high_hz / 1000 + "k" : b.high_hz}
+            </span>
+          </div>
+        ))}
+      </div>
+      {analysis.quality_flags?.length > 0 && (
+        <div className="notice">
+          Quality notes:{" "}
+          {analysis.quality_flags.join(", ").replaceAll("_", " ")}
+        </div>
+      )}
+      <div className="model-results">
+        <div>
+          <h4>Estimated speech activity</h4>
+          <p>
+            {analysis.speech_activity.status === "ready" &&
+            typeof analysis.speech_activity.fraction === "number"
+              ? `${(analysis.speech_activity.fraction * 100).toFixed(0)}% of the sample`
+              : analysis.speech_activity.status.replaceAll("_", " ")}
+          </p>
+          <span className="caption">
+            Silero VAD estimate, not a transcript.
+          </span>
+        </div>
+        <div>
+          <h4>Estimated acoustic categories</h4>
+          <p>
+            {analysis.acoustic_categories.categories
+              ?.map((c) => `${c.label} (${(c.score * 100).toFixed(0)}%)`)
+              .join(" · ") ||
+              analysis.acoustic_categories.status.replaceAll("_", " ")}
+          </p>
+          <span className="caption">
+            YAMNet model scores, not certain identifications.
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}

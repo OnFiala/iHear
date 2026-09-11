@@ -1,5 +1,5 @@
-import 'server-only';
-import type { ListeningEvent, Patient, ProfileInput } from '@/lib/types';
+import "server-only";
+import type { ListeningEvent, Patient, ProfileInput } from "@/lib/types";
 
 type Row = Record<string, unknown>;
 
@@ -12,13 +12,15 @@ export function patientFromRow(row: Row): Patient {
     id: String(row.id),
     workspaceId: String(row.workspace_id),
     displayName: String(row.display_name),
-    audiogram: row.audiogram as ProfileInput['audiogram'],
-    aids: row.aids as ProfileInput['aids'],
+    audiogram: row.audiogram as ProfileInput["audiogram"],
+    aids: row.aids as ProfileInput["aids"],
     followUpDate: iso(row.follow_up_date).slice(0, 10),
-    note: String(row.note ?? ''),
+    note: String(row.note ?? ""),
     timezone: String(row.timezone),
     createdAt: iso(row.created_at),
-    ...(row.event_count !== undefined ? { eventCount: Number(row.event_count) } : {}),
+    ...(row.event_count !== undefined
+      ? { eventCount: Number(row.event_count) }
+      : {}),
     ...(row.latest_status ? { latestStatus: String(row.latest_status) } : {}),
   };
 }
@@ -28,7 +30,7 @@ export function eventFromRow(row: Row): ListeningEvent {
   return {
     id: String(row.id),
     patientId: String(row.patient_id),
-    kind: row.kind as ListeningEvent['kind'],
+    kind: row.kind as ListeningEvent["kind"],
     difficulty: row.difficulty === null ? null : String(row.difficulty),
     environment: row.environment === null ? null : String(row.environment),
     capturedAt: iso(row.captured_at),
@@ -36,12 +38,17 @@ export function eventFromRow(row: Row): ListeningEvent {
     status: String(row.status),
     capture: row.capture as Record<string, unknown>,
     profileSnapshot: row.profile_snapshot as ProfileInput,
-    analysis: (row.analysis_result ?? null) as ListeningEvent['analysis'],
-    interpretation: interpretationStatus ? {
-      status: String(interpretationStatus),
-      result: (row.interpretation_result ?? null) as NonNullable<ListeningEvent['interpretation']>['result'],
-    } : null,
-    error: row.error === null || row.error === undefined ? null : String(row.error),
+    analysis: (row.analysis_result ?? null) as ListeningEvent["analysis"],
+    interpretation: interpretationStatus
+      ? {
+          status: String(interpretationStatus),
+          result: (row.interpretation_result ?? null) as NonNullable<
+            ListeningEvent["interpretation"]
+          >["result"],
+        }
+      : null,
+    error:
+      row.error === null || row.error === undefined ? null : String(row.error),
   };
 }
 

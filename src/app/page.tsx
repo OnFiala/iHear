@@ -1,9 +1,177 @@
-import Link from 'next/link';
-import Image from 'next/image';
-import {ArrowRight,AudioLines,Check,HeartHandshake,ScanLine,ShieldCheck} from 'lucide-react';
-import {Header,Footer} from '@/components/shared';
-export default function Landing(){return <><Header/><main id="main"><section className="hero page-width"><div className="hero-copy"><span className="eyebrow"><span className="tiny-orb"/> A little more understanding</span><h1>Small moments.<br/><em>Better conversations.</em></h1><p className="lead">Listening changes from one moment to the next. Remember what felt easy, and what didn’t — so you and your clinician can explore it together.</p><div className="hero-actions"><Link className="button" href="/clinic">Explore the clinician demo <ArrowRight size={19}/></Link><Link className="text-button" href="/app">Open patient app <ArrowRight size={17}/></Link></div><div className="hero-note"><ShieldCheck size={17}/><span>Illustrative demo · Synthetic profiles · No login needed</span></div></div><div className="hero-art"><Image src="/listening-glass.png" alt="Two softly illuminated glass forms, floating together" fill preload sizes="(max-width: 760px) 100vw, 52vw"/><div className="floating-moment glass"><span className="moment-icon understood"><Check size={20}/></span><div><strong>A moment of understanding</strong><span>Worth remembering.</span></div><span className="small-wave"><AudioLines size={24}/></span></div><span className="art-caption">Different moments. One shared conversation.</span></div></section>
- <section className="principle-strip page-width"><span>Made for everyday listening</span><span>Simple for patients</span><span>Useful for clinicians</span><span>Honest about uncertainty</span></section>
- <section id="how-it-works" className="section page-width"><div className="section-heading"><span className="eyebrow">From a moment to a conversation</span><h2>Less to do.<br/>More to talk about.</h2><p>No diary to keep. No complicated controls. Just a small pause to notice your listening experience.</p></div><div className="steps"><article className="glass step"><span className="step-number">01</span><ScanLine size={31} strokeWidth={1.3}/><h3>A simple beginning</h3><p>Your clinician creates a demo profile. Scan its QR code and confirm it on your phone.</p></article><article className="glass step"><span className="step-number">02</span><AudioLines size={31} strokeWidth={1.3}/><h3>Notice a moment</h3><p>Choose “I understand” or “I don’t understand”. With the microphone enabled, save a short acoustic sample.</p></article><article className="glass step"><span className="step-number">03</span><HeartHandshake size={31} strokeWidth={1.3}/><h3>Explore it together</h3><p>Your clinician sees your feedback alongside acoustic features, ready for your next conversation.</p></article></div></section>
- <section className="showcase-section page-width"><div><span className="eyebrow">A glimpse inside</span><h2>Every profile has<br/>a listening story.</h2><p>These are curated, synthetic examples. Your own demo profiles and recordings stay in your isolated workspace.</p><Link href="/clinic" className="text-button">Create your first demo profile <ArrowRight size={18}/></Link></div><div className="showcase-cards"><article className="glass showcase-card"><span className="avatar sage">AM</span><div><strong>Alex Morgan</strong><span>Synthetic showcase profile</span></div><div className="showcase-line"><span className="dot"/>Exploring everyday conversations</div></article><article className="glass showcase-card offset"><span className="avatar peach">JT</span><div><strong>Jamie Taylor</strong><span>Synthetic showcase profile</span></div><div className="showcase-line"><span className="dot"/>Noticing comfortable listening moments</div></article></div></section>
- <section className="boundary page-width"><ShieldCheck size={26} strokeWidth={1.4}/><div><h3>Support for a conversation. Space for clinical judgment.</h3><p>iHear does not diagnose hearing conditions or prescribe hearing-aid settings. Phone recordings are not measurements at the hearing aid or eardrum. No speech is transcribed. This demo is for illustrative use with synthetic profiles.</p></div></section></main><Footer/></>;}
+import Link from "next/link";
+import Image from "next/image";
+import {
+  ArrowRight,
+  AudioLines,
+  Check,
+  HeartHandshake,
+  ScanLine,
+  ShieldCheck,
+} from "lucide-react";
+import { Header, Footer } from "@/components/shared";
+export default function Landing() {
+  return (
+    <>
+      <Header />
+      <main tabIndex={-1} id="main">
+        <section className="hero page-width">
+          <div className="hero-copy">
+            <span className="eyebrow">
+              <span className="tiny-orb" /> A little more understanding
+            </span>
+            <h1>
+              Small moments.
+              <br />
+              <em>Better conversations.</em>
+            </h1>
+            <p className="lead">
+              Listening changes from one moment to the next. Remember what felt
+              easy, and what didn’t — so you and your clinician can explore it
+              together.
+            </p>
+            <div className="hero-actions">
+              <Link className="button" href="/clinic">
+                Explore the clinician demo <ArrowRight size={19} />
+              </Link>
+              <Link className="text-button" href="/app">
+                Open patient app <ArrowRight size={17} />
+              </Link>
+            </div>
+            <div className="hero-note">
+              <ShieldCheck size={17} />
+              <span>
+                Illustrative demo · Synthetic profiles · No login needed
+              </span>
+            </div>
+          </div>
+          <div className="hero-art">
+            <Image
+              src="/listening-glass.png"
+              alt="Two softly illuminated glass forms, floating together"
+              fill
+              preload
+              sizes="(max-width: 760px) 100vw, 52vw"
+            />
+            <div className="floating-moment glass">
+              <span className="moment-icon understood">
+                <Check size={20} />
+              </span>
+              <div>
+                <strong>A moment of understanding</strong>
+                <span>Worth remembering.</span>
+              </div>
+              <span className="small-wave">
+                <AudioLines size={24} />
+              </span>
+            </div>
+            <span className="art-caption">
+              Different moments. One shared conversation.
+            </span>
+          </div>
+        </section>
+        <section className="principle-strip page-width">
+          <span>Made for everyday listening</span>
+          <span>Simple for patients</span>
+          <span>Useful for clinicians</span>
+          <span>Honest about uncertainty</span>
+        </section>
+        <section id="how-it-works" className="section page-width">
+          <div className="section-heading">
+            <span className="eyebrow">From a moment to a conversation</span>
+            <h2>
+              Less to do.
+              <br />
+              More to talk about.
+            </h2>
+            <p>
+              No diary to keep. No complicated controls. Just a small pause to
+              notice your listening experience.
+            </p>
+          </div>
+          <div className="steps">
+            <article className="glass step">
+              <span className="step-number">01</span>
+              <ScanLine size={31} strokeWidth={1.3} />
+              <h3>A simple beginning</h3>
+              <p>
+                Your clinician creates a demo profile. Scan its QR code and
+                confirm it on your phone.
+              </p>
+            </article>
+            <article className="glass step">
+              <span className="step-number">02</span>
+              <AudioLines size={31} strokeWidth={1.3} />
+              <h3>Notice a moment</h3>
+              <p>
+                Choose “I understand” or “I don’t understand”. With the
+                microphone enabled, save a short acoustic sample.
+              </p>
+            </article>
+            <article className="glass step">
+              <span className="step-number">03</span>
+              <HeartHandshake size={31} strokeWidth={1.3} />
+              <h3>Explore it together</h3>
+              <p>
+                Your clinician sees your feedback alongside acoustic features,
+                ready for your next conversation.
+              </p>
+            </article>
+          </div>
+        </section>
+        <section className="showcase-section page-width">
+          <div>
+            <span className="eyebrow">A glimpse inside</span>
+            <h2>
+              Every profile has
+              <br />a listening story.
+            </h2>
+            <p>
+              These are curated, synthetic examples. Your own demo profiles and
+              recordings stay in your isolated workspace.
+            </p>
+            <Link href="/clinic" className="text-button">
+              Create your first demo profile <ArrowRight size={18} />
+            </Link>
+          </div>
+          <div className="showcase-cards">
+            <article className="glass showcase-card">
+              <span className="avatar sage">AM</span>
+              <div>
+                <strong>Alex Morgan</strong>
+                <span>Synthetic showcase profile</span>
+              </div>
+              <div className="showcase-line">
+                <span className="dot" />
+                Exploring everyday conversations
+              </div>
+            </article>
+            <article className="glass showcase-card offset">
+              <span className="avatar peach">JT</span>
+              <div>
+                <strong>Jamie Taylor</strong>
+                <span>Synthetic showcase profile</span>
+              </div>
+              <div className="showcase-line">
+                <span className="dot" />
+                Noticing comfortable listening moments
+              </div>
+            </article>
+          </div>
+        </section>
+        <section className="boundary page-width">
+          <ShieldCheck size={26} strokeWidth={1.4} />
+          <div>
+            <h3>Support for a conversation. Space for clinical judgment.</h3>
+            <p>
+              iHear does not diagnose hearing conditions or prescribe
+              hearing-aid settings. Phone recordings are not measurements at the
+              hearing aid or eardrum. No speech is transcribed. This demo is for
+              illustrative use with synthetic profiles.
+            </p>
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </>
+  );
+}
