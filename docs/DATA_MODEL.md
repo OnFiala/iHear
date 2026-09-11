@@ -34,7 +34,7 @@ Owner capabilities have no `patient_id` and do not expire. Patient capabilities 
 
 `id uuid primary key`, `workspace_id uuid not null`, `display_name text`, `audiogram jsonb`, `aids jsonb`, `follow_up_date date`, `note text`, `timezone text default 'Europe/Prague'`, `profile_version integer default 1`, `report_revision bigint default 1`, `search_vector tsvector`, `created_at timestamptz`, `updated_at timestamptz`.
 
-The profile update trigger increments `profile_version` and `report_revision`. Historical events retain their original `profile_snapshot`. `search_vector` covers display name and note.
+The profile update trigger increments `profile_version` and `report_revision`. Event insert/delete and report-visible event updates also increment `report_revision`; analysis and interpretation changes have their own invalidation triggers. Historical events retain their original `profile_snapshot`. `search_vector` covers display name and note.
 
 ### `ihear.pairing_tokens`
 
@@ -112,6 +112,6 @@ RLS is enabled and forced on every `ihear` table as defense in depth, with no br
 
 ## Local verification evidence
 
-On 2026-09-11, the CLI-named migrations applied to the local Supabase stack without schema errors. Rollback-only Postgres integration tests exercised tenant foreign-key denial, event idempotency and single enqueue, exclusive claim/lease renewal, expired-lease rejection, DSP/interpretation persistence, audio deletion marking, full-text search, global cross-workspace budget enforcement, per-patient event limits, overage settlement/freeze, stale-report rejection, report enqueue, and direct `anon` schema denial. Supabase database lint and security/performance advisors returned no issues.
+On 2026-09-11, the CLI-named migrations applied to the local Supabase stack without schema errors. Rollback-only Postgres integration tests exercised tenant foreign-key denial, event idempotency and single enqueue, exclusive claim/lease renewal, expired-lease rejection, DSP/interpretation persistence, audio deletion marking, full-text search, global cross-workspace budget enforcement, per-patient event limits, overage settlement/freeze, stale-report rejection, report enqueue, and direct `anon` plus `authenticated` schema denial. Supabase database lint and security/performance advisors returned no issues.
 
 A separate live HTTP check loaded the local public key only in process memory and used an existing private report object. Anonymous database select and insert were denied; anonymous Storage list did not reveal the object; upload and direct download were denied. No probe write succeeded and no private payload or key was printed.
