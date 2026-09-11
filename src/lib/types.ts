@@ -1,0 +1,9 @@
+export type ProfileInput = { displayName:string; audiogram:{frequencies:number[];left:number[];right:number[]}; aids:{side:'left'|'right'|'bilateral';left:{model:string;tier:string}|null;right:{model:string;tier:string}|null}; followUpDate:string; note:string; timezone:string };
+export type Patient = ProfileInput & {id:string;workspaceId:string;createdAt:string;eventCount?:number;latestStatus?:string};
+export type Analysis = {duration_seconds:number;sample_rate:number;rms_dbfs:number|null;peak_dbfs:number|null;clipping_fraction:number;silent:boolean;quality_flags:string[];bands:{low_hz:number;high_hz:number;relative_energy:number}[];spectral_centroid_hz:number;speech_activity:{status:string;fraction?:number};acoustic_categories:{status:string;categories?:{label:string;score:number}[]}};
+export type ListeningEvent = {id:string;patientId:string;kind:'understood'|'difficult';difficulty:string|null;environment:string|null;capturedAt:string;createdAt:string;status:string;capture:Record<string,unknown>;profileSnapshot:ProfileInput;analysis:Analysis|null;interpretation:{status:string;result:{summary?:string;clinician_questions?:string[];patient_tip_id?:string;uncertainty?:string}|null}|null;error?:string|null};
+export type Pairing = {url:string;code:string;expiresAt:string};
+export const difficulties=['Following one person','Several people talking','Sound was uncomfortable','Something else'] as const;
+export const environments=['Quiet','Background conversation','Music or TV','Traffic or machinery','Not sure'] as const;
+export const frequencies=[250,500,1000,2000,4000,8000];
+export const tips:Record<string,string>={face_speaker:'If it helps, face the person you are listening to.',quieter_place:'If you can, move to a quieter place.',take_break:'It is okay to take a short listening break.',ask_repeat:'You can ask someone to repeat or rephrase.',share_clinician:'Share this moment at your next appointment.'};

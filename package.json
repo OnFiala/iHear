@@ -1,0 +1,49 @@
+{
+  "name": "ihear",
+  "version": "0.1.0",
+  "private": true,
+  "license": "SEE LICENSE IN LICENSE",
+  "packageManager": "pnpm@10.33.2",
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0 --port 3000",
+    "build": "next build",
+    "start": "next start --hostname 0.0.0.0 --port 3000",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@fontsource-variable/dm-sans": "5.2.8",
+    "@fontsource-variable/manrope": "5.2.8",
+    "@supabase/supabase-js": "2.116.0",
+    "@zxing/browser": "0.1.5",
+    "idb": "8.0.3",
+    "lucide-react": "0.577.0",
+    "next": "16.3.4",
+    "pg": "8.16.3",
+    "qrcode": "1.5.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0",
+    "@types/node": "22.19.15",
+    "@types/pg": "8.16.0",
+    "@types/qrcode": "1.5.6",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "supabase": "2.117.0",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "supabase",
+      "sharp",
+      "esbuild"
+    ]
+  }
+}

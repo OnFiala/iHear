@@ -1,0 +1,21 @@
+{
+  "version": "2026-09-11",
+  "device": "Widex ALLURE BTE R D",
+  "illustrativeTiers": ["110", "220", "330", "440"],
+  "facts": [
+    {
+      "fact": "The manufacturer identifies ALLURE BTE R D as a rechargeable behind-the-ear hearing aid.",
+      "verificationStatus": "verified_manufacturer_description",
+      "scope": "BTE R D family only; not a tier-specific efficacy claim",
+      "source": "https://www.widex.com/en/hearing-aids/allure/bte-r-d/",
+      "checkedAt": "2026-09-11"
+    }
+  ],
+  "tierSpecificDifferences": "unknown",
+  "routingWithConnectedPhone": "unknown; requires physical device testing",
+  "excludedClaims": ["RIC-only features", "tier guarantees understanding", "prescribed gain", "calibrated sound at the eardrum", "voice separation accuracy"],
+  "sourceCautions": [
+    "The live BTE product page also contains a paragraph explicitly naming Allure AI RIC; its connectivity and sensor claims are not imported into this BTE record.",
+    "The user-approved 110/220/330/440 illustrative selection is not evidence of comparative clinical performance."
+  ]
+}
