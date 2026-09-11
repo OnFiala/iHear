@@ -4,13 +4,13 @@ This document is the exact backend contract for the local milestone. The migrati
 
 ## Storage and queue constants
 
-- `AUDIO_BUCKET=ihear-audio`, private, WAV only, 2.1 MB object limit.
-- `REPORT_BUCKET=ihear-reports`, private, PDF only, 10 MB object limit.
+- `AUDIO_BUCKET=ihear-audio`, private, WAV only, 2,202,000-byte object limit.
+- `REPORT_BUCKET=ihear-reports`, private, PDF only, 10 MB Storage limit; worker generation and web delivery enforce the tighter 4,000,000-byte limit.
 - `QUEUE_NAME=ihear_jobs`, a durable logged pgmq queue.
-- `PIPELINE_VERSION=1`, `REPORT_VERSION=1`.
+- `PIPELINE_VERSION=1`, `REPORT_VERSION=2`.
 - Audio object key: `<workspace_id>/<patient_id>/<event_id>.wav`.
 - Report object key: `<workspace_id>/<patient_id>/<report_id>/<attempt_id>.pdf`.
-- Queue payload: `{"jobId":"<uuid>","kind":"event_analysis|report","version":1}`. The database row, not the queue message, is authoritative.
+- Queue payload: `{"jobId":"<uuid>","kind":"event_analysis|report","version":number}`; event jobs use pipeline version 1, report jobs use template version 2. The database row, not the queue message, is authoritative.
 
 The server reads these five values from environment variables and defaults to the listed local values. It rejects a runtime override that does not match the applied migration, preventing the application and worker from silently addressing different infrastructure. A future rename/version bump therefore requires a migration and runtime configuration change together.
 
@@ -62,9 +62,11 @@ No interpretation is attempted when deterministic evidence is ambiguous. That st
 
 ### `ihear.reports`
 
-`id uuid primary key`, `workspace_id uuid not null`, `patient_id uuid not null`, `input_revision bigint`, `report_version integer default 1`, `status text` (`queued`, `generating`, `ready`, `failed`), `object_path text null unique`, `error text null`, `created_at timestamptz`, `updated_at timestamptz`, unique `(patient_id, input_revision, report_version)`.
+`id uuid primary key`, `workspace_id uuid not null`, `patient_id uuid not null`, `input_revision bigint`, `report_version integer default 2`, `status text` (`queued`, `generating`, `ready`, `failed`), `object_path text null unique`, `error text null`, `created_at timestamptz`, `updated_at timestamptz`, unique `(patient_id, input_revision, report_version)`.
 
 POST creates at most one report and one job for the current `(patient_id, report_revision, REPORT_VERSION)`. GET only reads status. The download API streams the private object after owner authorization.
+
+Template version 2 adds explicit illustrative-use text, clinic-local capture timestamps and an honest empty-chart state. Version 1 records remain historical; they are never reused as a current version 2 report. If prior reports exist but the current revision/version does not, the UI receives `outdated` and offers updated preparation. An already-ready old report can still reconcile its unfinished job without being regenerated or downgraded.
 
 ### `ihear.jobs`
 

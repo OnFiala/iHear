@@ -31,4 +31,6 @@ def test_fixed_runtime_contract_accepts_documented_values(monkeypatch: pytest.Mo
     monkeypatch.setenv("ASTRA_MODEL", "gpt-6-astra")
     monkeypatch.setenv("ASTRA_REASONING_EFFORT", "low")
     monkeypatch.setenv("WORKER_CONCURRENCY", "1")
-    assert Settings.from_env().worker_id
+    settings = Settings.from_env()
+    assert settings.worker_id
+    assert settings.report_version == 2

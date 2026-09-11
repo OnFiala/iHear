@@ -246,6 +246,8 @@ class JobProcessor:
 
     def _process_report(self, job: dict[str, Any], guard: Callable[[], None]) -> None:
         report, patient, events = self.database.report_context(job)
+        if int(report["report_version"]) != int(job["version"]):
+            raise ValueError("Report row version disagrees with authoritative job row")
         if report.get("status") == "ready" and report.get("object_path"):
             guard()
             self.database.finish_job(job["id"], {
@@ -255,6 +257,11 @@ class JobProcessor:
                 "reconciled": True,
             })
             return
+        if int(job["version"]) != self.settings.report_version:
+            raise ValueError(
+                f"Unsupported report version {job['version']}; "
+                f"worker expects version {self.settings.report_version}"
+            )
         contents = generate_report(patient, events, int(report["input_revision"]))
         if len(contents) > MAX_REPORT_BYTES:
             raise RuntimeError("Generated report exceeds the 4 MB delivery limit")

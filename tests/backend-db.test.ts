@@ -330,6 +330,14 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
     );
     assert.equal(afterFreeze.rows[0].value.status, "held_budget_frozen");
 
+    const tableDefaultReport = await client.query<{ report_version: number }>(
+      `insert into ihear.reports (workspace_id, patient_id, input_revision)
+       select workspace_id, id, report_revision from ihear.patients where id = $1
+       returning report_version`,
+      [patientB],
+    );
+    assert.equal(tableDefaultReport.rows[0].report_version, 2);
+
     const report = await client.query<{
       value: { reportId: string; status: string };
     }>("select ihear.ensure_report_job($1, $2, 1) as value", [
@@ -337,6 +345,49 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
       patientA,
     ]);
     assert.equal(report.rows[0].value.status, "queued");
+    const reportV1Again = await client.query<{
+      value: { reportId: string; status: string };
+    }>("select ihear.ensure_report_job($1, $2, 1) as value", [
+      workspaceA,
+      patientA,
+    ]);
+    assert.equal(
+      reportV1Again.rows[0].value.reportId,
+      report.rows[0].value.reportId,
+    );
+    const reportV2 = await client.query<{
+      value: { reportId: string; status: string };
+    }>("select ihear.ensure_report_job($1, $2) as value", [
+      workspaceA,
+      patientA,
+    ]);
+    assert.equal(reportV2.rows[0].value.status, "queued");
+    assert.notEqual(
+      reportV2.rows[0].value.reportId,
+      report.rows[0].value.reportId,
+    );
+    const reportVersions = await client.query<{
+      id: string;
+      report_version: number;
+      job_version: number;
+    }>(
+      `select r.id, r.report_version, j.version as job_version
+       from ihear.reports r
+       join ihear.jobs j on j.report_id = r.id and j.kind = 'report'
+       where r.id = any($1::uuid[])
+       order by r.report_version`,
+      [[report.rows[0].value.reportId, reportV2.rows[0].value.reportId]],
+    );
+    assert.deepEqual(
+      reportVersions.rows.map(({ report_version, job_version }) => ({
+        report_version,
+        job_version,
+      })),
+      [
+        { report_version: 1, job_version: 1 },
+        { report_version: 2, job_version: 2 },
+      ],
+    );
     const reportJob = await client.query<{ id: string }>(
       "select id from ihear.jobs where report_id = $1 and kind = 'report'",
       [report.rows[0].value.reportId],

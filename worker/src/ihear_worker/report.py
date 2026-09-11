@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from collections import Counter
+from datetime import datetime
 from io import BytesIO
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT
@@ -87,13 +89,17 @@ def generate_report(patient: dict[str, Any], events: list[dict[str, Any]], input
     counts = Counter(event.get("kind") for event in events)
     aid_summary = _aid_summary(patient.get("aids"))
     follow_up = _bounded_display(patient.get("follow_up_date"), 40) or "Not set"
+    timezone_name = _bounded_display(patient.get("timezone"), 64)
+    report_timezone = _timezone(timezone_name)
+    timezone_label = timezone_name if report_timezone else "Not available"
     story: list[Any] = [
         Paragraph("iHear listening report", styles["ReportTitle"]),
         Paragraph(f"Patient: {_escape(patient.get('display_name') or 'Unknown')} &nbsp;&nbsp; Evidence revision: {input_revision}", styles["BodyMuted"]),
-        Paragraph(f"Follow-up: {_escape(follow_up)} &nbsp;&nbsp; Hearing aids: {_escape(aid_summary)}", styles["BodyMuted"]),
+        Paragraph(f"Follow-up: {_escape(follow_up)} &nbsp;&nbsp; Hearing aids: {_escape(aid_summary)} &nbsp;&nbsp; Timezone: {_escape(timezone_label)}", styles["BodyMuted"]),
         Spacer(1, 6 * mm),
         Paragraph("Purpose and limits", styles["Section"]),
         Paragraph(
+            "Illustrative demo only. Use synthetic profiles. "
             "This report organizes patient feedback, deterministic signal measurements, and model estimates. "
             "It is not a diagnosis, does not measure calibrated sound pressure or hearing thresholds, and does not prescribe hearing-aid settings. Clinical interpretation belongs to the clinician.",
             styles["BodyText"],
@@ -117,11 +123,21 @@ def generate_report(patient: dict[str, Any], events: list[dict[str, Any]], input
         rms = event["analysis"].get("rms_dbfs")
         if isinstance(rms, (int, float)):
             rms_values.append((str(index), float(rms)))
-    story.extend([
+    signal_story: list[Any] = [
         Paragraph("Relative signal level by analysed event", styles["Section"]),
-        Paragraph("Bars use a fixed -100 to 0 dBFS axis; labels show the measured RMS dBFS. dBFS is an uncalibrated digital level and cannot be compared with dB HL or SPL.", styles["BodyMuted"]),
-        Spacer(1, 3 * mm),
-        BarChart(rms_values or [("No values", 0.0)]),
+    ]
+    if rms_values:
+        signal_story.extend([
+            Paragraph("Bars use a fixed -100 to 0 dBFS axis; labels show the measured RMS dBFS. dBFS is an uncalibrated digital level and cannot be compared with dB HL or SPL.", styles["BodyMuted"]),
+            Spacer(1, 3 * mm),
+            BarChart(rms_values),
+        ])
+    else:
+        signal_story.append(Paragraph(
+            "No measured RMS dBFS values are available for this report.",
+            styles["BodyMuted"],
+        ))
+    story.extend(signal_story + [
         KeepTogether([
             Paragraph("Method notes", styles["Section"]),
             Paragraph(
@@ -138,17 +154,18 @@ def generate_report(patient: dict[str, Any], events: list[dict[str, Any]], input
         speech = analysis.get("speech_activity") or {}
         categories = analysis.get("acoustic_categories") or {}
         category_text = ", ".join(
-            f"{item.get('label')} ({float(item.get('score', 0)):.2f})"
+            _category_display(item)
             for item in categories.get("categories", [])[:3]
+            if isinstance(item, dict)
         ) or categories.get("status", "unavailable")
         interpretation = event.get("interpretation") or {}
         interpretation_status = str(event.get("interpretation_status") or "unavailable")
         rows = [
             ["Feedback", str(event.get("kind") or "unknown")],
-            ["Captured", str(event.get("captured_at") or "unknown")],
+            ["Captured", _local_timestamp(event.get("captured_at"), report_timezone)],
             ["Context", " / ".join(filter(None, [str(event.get("difficulty") or ""), str(event.get("environment") or "")])) or "Not supplied"],
             ["Duration", f"{analysis.get('duration_seconds', 'unavailable')} s"],
-            ["RMS / peak", f"{analysis.get('rms_dbfs', 'unavailable')} / {analysis.get('peak_dbfs', 'unavailable')} dBFS"],
+            ["RMS / peak", f"{_measured_value(analysis.get('rms_dbfs'))} / {_measured_value(analysis.get('peak_dbfs'))} dBFS"],
             ["Quality flags", ", ".join(analysis.get("quality_flags", [])) or "None"],
             ["Speech estimate", f"{speech.get('status', 'unavailable')}" + (f", fraction {speech.get('fraction'):.2f}" if isinstance(speech.get("fraction"), (int, float)) else "")],
             ["Acoustic estimates", category_text],
@@ -220,3 +237,37 @@ def _aid_summary(value: Any) -> str:
             if model:
                 models.append(f"{channel}: {model}")
     return "; ".join(filter(None, [side, *models])) or "Not supplied"
+
+
+def _timezone(name: str | None) -> ZoneInfo | None:
+    if not name:
+        return None
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return None
+
+
+def _local_timestamp(value: Any, timezone: ZoneInfo | None) -> str:
+    original = str(value or "unknown")
+    if timezone is None or not isinstance(value, str):
+        return original
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return original
+    if parsed.tzinfo is None:
+        return original
+    return parsed.astimezone(timezone).strftime("%Y-%m-%d %H:%M %Z")
+
+
+def _measured_value(value: Any) -> str:
+    return str(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else "unavailable"
+
+
+def _category_display(item: dict[str, Any]) -> str:
+    label = _bounded_display(item.get("label"), 80) or "Unlabelled category"
+    score = item.get("score")
+    if isinstance(score, (int, float)) and not isinstance(score, bool):
+        return f"{label} ({float(score):.2f})"
+    return f"{label} (score unavailable)"

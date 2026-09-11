@@ -37,6 +37,41 @@ def _new_attempt_database(settings: Settings) -> WorkerDatabase:
     return WorkerDatabase(settings.database_url, settings.queue_name, str(uuid4()))
 
 
+def _parse_queue_payload(payload: dict) -> tuple[str, str, int]:
+    job_id = str(UUID(str(payload.get("jobId"))))
+    kind = payload.get("kind")
+    version = payload.get("version")
+    if kind not in {"event_analysis", "report"} or not isinstance(version, int) or isinstance(version, bool):
+        raise ValueError("invalid queue message contract")
+    return job_id, kind, version
+
+
+def _job_contract_error(job: dict, payload: dict, settings: Settings) -> str | None:
+    if job["kind"] != payload["kind"] or int(job["version"]) != payload["version"]:
+        return "Queue payload disagrees with authoritative job row"
+    # Obsolete report jobs must reach JobProcessor so a ready cached artifact
+    # can be reconciled before a non-ready unsupported version is failed.
+    if job["kind"] == "report":
+        return None
+    expected_version = settings.pipeline_version
+    if int(job["version"]) != expected_version:
+        return (
+            f"Unsupported {job['kind']} version {job['version']}; "
+            f"worker expects version {expected_version}"
+        )
+    return None
+
+
+def _reject_unprocessable_job(
+    database: WorkerDatabase, job: dict, payload: dict, settings: Settings,
+) -> bool:
+    error = _job_contract_error(job, payload, settings)
+    if error is None:
+        return False
+    database.fail_job(job["id"], error)
+    return True
+
+
 def _handle_failure_safely(
     processor: JobProcessor, job: dict, error: Exception, lease: LeaseHeartbeat,
     logger: logging.Logger,
@@ -100,9 +135,7 @@ def main() -> None:
                 continue
             payload = message.payload
             try:
-                job_id = str(UUID(str(payload.get("jobId"))))
-                if payload.get("kind") not in {"event_analysis", "report"} or payload.get("version") != 1:
-                    raise ValueError("invalid queue message contract")
+                job_id, _kind, _version = _parse_queue_payload(payload)
             except (ValueError, TypeError, AttributeError):
                 coordinator.archive_unusable_message(message.message_id)
                 logger.error("archived invalid queue message %d", message.message_id)
@@ -115,11 +148,12 @@ def main() -> None:
             if not job:
                 continue
             processor = JobProcessor(settings, database, storage, models, astra)
-            if job["kind"] != payload["kind"] or int(job["version"]) != payload["version"]:
-                try:
-                    database.fail_job(job["id"], "Queue payload disagrees with authoritative job row")
-                except Exception as exc:
-                    logger.error("job %s mismatch transition failed: %s", job["id"], type(exc).__name__)
+            try:
+                rejected = _reject_unprocessable_job(database, job, payload, settings)
+            except Exception as exc:
+                logger.error("job %s mismatch transition failed: %s", job["id"], type(exc).__name__)
+                continue
+            if rejected:
                 continue
             with LeaseHeartbeat(database, job["id"], settings.lease_seconds, logger) as lease:
                 try:

@@ -232,7 +232,7 @@ class WorkerDatabase:
                 """
                 select p.workspace_id, p.id
                 from ihear.patients p
-                where p.follow_up_date <= (now() at time zone p.timezone)::date
+                where p.follow_up_date <= ((now() at time zone p.timezone)::date + 1)
                   and extract(hour from (now() at time zone p.timezone)) >= 8
                   and not exists (
                     select 1 from ihear.reports r

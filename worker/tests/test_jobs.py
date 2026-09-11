@@ -314,13 +314,14 @@ class FailIfReportStorageCalled:
 def test_ready_report_retry_reconciles_existing_object_without_regeneration() -> None:
     database = ReadyReportDatabase()
     processor = JobProcessor(
-        SimpleNamespace(device_capabilities=Path("/nonexistent")),
+        SimpleNamespace(device_capabilities=Path("/nonexistent"), report_version=2),
         database, FailIfReportStorageCalled(), SimpleNamespace(), SimpleNamespace(),
     )
     processor.process({
         "id": "job-id",
         "kind": "report",
         "report_id": "report-id",
+        "version": 1,
         "workspace_id": "workspace",
         "patient_id": "patient",
     })
@@ -345,7 +346,7 @@ class NewReportDatabase(ReadyReportDatabase):
             {
                 "id": job["report_id"],
                 "input_revision": 7,
-                "report_version": 1,
+                "report_version": 2,
                 "status": "pending",
                 "object_path": None,
             },
@@ -372,7 +373,7 @@ def test_new_report_object_is_scoped_to_claim_attempt() -> None:
     database = NewReportDatabase()
     storage = RecordingReportStorage()
     processor = JobProcessor(
-        SimpleNamespace(report_bucket="ihear-reports", device_capabilities=Path("/nonexistent")),
+        SimpleNamespace(report_bucket="ihear-reports", device_capabilities=Path("/nonexistent"), report_version=2),
         database,
         storage,
         SimpleNamespace(),
@@ -382,6 +383,7 @@ def test_new_report_object_is_scoped_to_claim_attempt() -> None:
         "id": "job-id",
         "kind": "report",
         "report_id": "report-id",
+        "version": 2,
         "workspace_id": "workspace",
         "patient_id": "patient",
     })
@@ -389,3 +391,53 @@ def test_new_report_object_is_scoped_to_claim_attempt() -> None:
     assert database.persisted_path == expected
     assert storage.uploaded[0:2] == ("ihear-reports", expected)
     assert storage.uploaded[2] < 4_000_000
+
+
+class ObsoletePendingReportDatabase(ReadyReportDatabase):
+    def __init__(self):
+        super().__init__()
+        self.failed = None
+
+    def report_context(self, job):
+        return (
+            {
+                "id": job["report_id"],
+                "input_revision": 7,
+                "report_version": 1,
+                "status": "pending",
+                "object_path": None,
+            },
+            {"display_name": "Synthetic"},
+            [],
+        )
+
+    def fail_job(self, job_id, error):
+        self.failed = (job_id, error)
+
+
+def test_pending_obsolete_report_is_failed_without_rendering_template_two() -> None:
+    database = ObsoletePendingReportDatabase()
+    processor = JobProcessor(
+        SimpleNamespace(device_capabilities=Path("/nonexistent"), report_version=2),
+        database,
+        FailIfReportStorageCalled(),
+        SimpleNamespace(),
+        SimpleNamespace(),
+    )
+    job = {
+        "id": "old-report-job",
+        "kind": "report",
+        "report_id": "report-id",
+        "version": 1,
+        "workspace_id": "workspace",
+        "patient_id": "patient",
+    }
+
+    with pytest.raises(ValueError, match="Unsupported report version 1") as exc_info:
+        processor.process(job)
+    processor.handle_failure(job, exc_info.value)
+
+    assert database.failed == (
+        "old-report-job",
+        "ValueError: Unsupported report version 1; worker expects version 2",
+    )
