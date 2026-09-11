@@ -1,0 +1,29 @@
+name: ihear
+services:
+  worker:
+    image: ihear-worker:local
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+      target: production
+    env_file: .env.local
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@host.docker.internal:54322/postgres
+      SUPABASE_URL: http://host.docker.internal:54321
+      MODEL_DIR: /models
+      WORKER_CONCURRENCY: "1"
+      WORKER_ID: ihear-local-worker
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      TF_NUM_INTRAOP_THREADS: "1"
+      TF_NUM_INTEROP_THREADS: "1"
+    volumes:
+      - models:/models
+    restart: unless-stopped
+    cpus: 1.0
+    mem_limit: 2g
+    init: true
+    stop_grace_period: 30s
+
+volumes:
+  models:

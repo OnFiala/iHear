@@ -1,0 +1,13 @@
+.git
+.next
+node_modules
+.env*
+.local
+artifacts
+test-results
+playwright-report
+worker/models
+worker/.venv
+**/__pycache__
+**/.pytest_cache
+*.wav

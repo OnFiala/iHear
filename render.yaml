@@ -1,0 +1,47 @@
+# Prepared configuration only. Creating this paid resource requires owner approval.
+services:
+  - type: worker
+    name: ihear-audio-worker
+    runtime: docker
+    repo: https://github.com/OnFiala/iHear
+    branch: implementation/local-milestone
+    region: frankfurt
+    plan: 1c-2g
+    numInstances: 1
+    autoDeployTrigger: "off"
+    dockerfilePath: ./worker/Dockerfile
+    dockerContext: .
+    maxShutdownDelaySeconds: 180
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ASTRA_MODEL
+        value: gpt-6-astra
+      - key: ASTRA_REASONING_EFFORT
+        value: low
+      - key: WORKER_CONCURRENCY
+        value: "1"
+      - key: AUDIO_BUCKET
+        value: ihear-audio
+      - key: REPORT_BUCKET
+        value: ihear-reports
+      - key: QUEUE_NAME
+        value: ihear_jobs
+      - key: PIPELINE_VERSION
+        value: "1"
+      - key: REPORT_VERSION
+        value: "2"
+      - key: CLINIC_TIMEZONE
+        value: Europe/Prague
+      - key: MODEL_DIR
+        value: /models
+      - key: TF_NUM_INTRAOP_THREADS
+        value: "1"
+      - key: TF_NUM_INTEROP_THREADS
+        value: "1"

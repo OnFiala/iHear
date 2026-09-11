@@ -8,6 +8,7 @@ Generated from installed pinned dependencies and pnpm-lock.yaml on 2026-09-11 us
 
 | Package | Version(s) | Declared license | Source |
 | --- | --- | --- | --- |
+| @axe-core/playwright | 4.13.0 | MPL-2.0 | [Package source](https://github.com/dequelabs/axe-core-npm#readme) |
 | @ecies/ciphers | 0.2.6 | MIT | [Package source](https://github.com/ecies/js-ciphers#readme) |
 | @esbuild/darwin-arm64 | 0.27.7 | MIT | [Package source](https://github.com/evanw/esbuild#readme) |
 | @fontsource-variable/dm-sans | 5.2.8 | OFL-1.1 | [Package source](https://fontsource.org/fonts/dm-sans) |
@@ -40,6 +41,7 @@ Generated from installed pinned dependencies and pnpm-lock.yaml on 2026-09-11 us
 | @zxing/text-encoding | 0.9.0 | (Unlicense OR Apache-2.0) | [Package source](https://github.com/inexorabletash/text-encoding) |
 | ansi-regex | 5.0.1 | MIT | [Package source](https://github.com/chalk/ansi-regex#readme) |
 | ansi-styles | 4.3.0 | MIT | [Package source](https://github.com/chalk/ansi-styles#readme) |
+| axe-core | 4.13.0 | MPL-2.0 | [Package source](https://www.deque.com/axe/) |
 | baseline-browser-mapping | 2.11.22 | Apache-2.0 | [Package source](https://github.com/web-platform-dx/baseline-browser-mapping#readme) |
 | camelcase | 5.3.1 | MIT | [Package source](https://github.com/sindresorhus/camelcase#readme) |
 | caniuse-lite | 1.0.30001810 | CC-BY-4.0 | [Package source](https://github.com/browserslist/caniuse-lite#readme) |
@@ -95,6 +97,7 @@ Generated from installed pinned dependencies and pnpm-lock.yaml on 2026-09-11 us
 | resolve-pkg-maps | 1.0.0 | MIT | [Package source](https://github.com/privatenumber/resolve-pkg-maps#readme) |
 | scheduler | 0.28.0 | MIT | [Package source](https://react.dev/) |
 | semver | 7.8.5 | ISC | [Package source](https://github.com/npm/node-semver#readme) |
+| server-only | 0.0.1 | MIT | [Package source](https://reactjs.org/) |
 | set-blocking | 2.0.0 | ISC | [Package source](https://github.com/yargs/set-blocking#readme) |
 | sharp | 0.35.4 | Apache-2.0 | [Package source](https://sharp.pixelplumbing.com) |
 | source-map-js | 1.2.1 | BSD-3-Clause | [Package source](https://github.com/7rulnik/source-map-js) |
@@ -125,10 +128,10 @@ Generated from installed pinned dependencies and pnpm-lock.yaml on 2026-09-11 us
 
 ## Audio worker, models and generated fixtures
 
-The exact worker dependency/model versions, upstream sources and artifact SHA-256 values are recorded in `worker/pyproject.toml`, its lockfile, `config/models.json` and `docs/AUDIO_PIPELINE.md`. See the following finalized inventory once worker integration is verified. Model weights are not committed.
+The exact worker dependency/model versions, upstream sources and artifact SHA-256 values are recorded in `worker/pyproject.toml`, its lockfile, `config/models.json` and `docs/AUDIO_PIPELINE.md`. The [installed production dependency inventory](worker/dependency-licenses.json) records 53 direct/transitive distributions and their license evidence. Model weights are not committed.
 
 - NumPy/SciPy: BSD-3-Clause.
-- TensorFlow and YAMNet upstream implementation: Apache-2.0; the selected weight distribution license must be verified in the model manifest.
+- TensorFlow and the selected YAMNet distribution: Apache-2.0, with source and checksum provenance in the model manifest.
 - ONNX Runtime: MIT. Silero VAD upstream: MIT; selected artifact provenance is in the manifest.
 - ReportLab: BSD-style license. Additional worker dependencies retain the licenses in their package metadata and lockfile.
 - Test tones are generated mathematically by iHear scripts at runtime; no third-party or private recording is used.

@@ -19,12 +19,21 @@ Approved in the implementation brief on 2026-09-11.
 - Opaque random, hashed server-side capabilities in HttpOnly cookies: workspace owner and patient-scoped pairing. No browser service key.
 - Separate durable DSP, interpretation and report records. Transactional job idempotency by event and pipeline version.
 - JSON profile snapshots stored with events; original audiograms are clinician-entered synthetic examples.
-- Development implementation branch: implementation/local-milestone, based on an initial main documentation commit. main remains the baseline until reviewed integration.
+- Development implementation branch: `implementation/local-milestone`, based on the initial main documentation commit `1279a48`. Reviewed local integration fast-forwards `main`; both refs publish the same milestone without rewriting remote history.
+- A private Tailscale Serve HTTPS origin supports cross-device local testing. It is neither a public deployment nor a future runtime dependency.
+- Jobs use renewable Postgres leases and pgmq visibility, bounded retries, independent DSP persistence and idempotent audio deletion. Stale report revisions cannot publish as current.
+- Each claim uses a fresh immutable UUID as lease authority. PDF paths include that attempt UUID; a late process cannot delete or publish another attempt's file. Already-ready reports reconcile completion without regeneration.
+- Exact provider input-token preflight, bounded structured output, transactional global reservation, conservative ambiguity holds and a freeze on reported overage guard Astra calls. Refreshes and report downloads make no generation calls.
+- All visitor workspaces are isolated by server-issued capabilities; the landing showcase is immutable synthetic content. There is no owner-cookie recovery feature in this milestone.
+- Report generation uses stored acoustic features and interpretations; it incurs no additional Astra call. A scheduling sweep prepares due follow-up reports in the profile timezone and reuses an unchanged input revision.
 
 ## C. Open questions and verified limitations
-- Actual iPhone/Safari testing requires an available physical phone and trusted reachable HTTPS origin.
+- Two physical phone samples were received and processed through a trusted private HTTPS origin. Native-camera scanning, lock/resume, standalone mode and physical Safari offline/eviction behavior still need owner observations; desktop browser automation does not certify them.
 - Hearing-aid physical checks start Monday 2026-09-14. Until then use the phone microphone and controlled recordings.
 - No OPENAI_API_KEY was present in the task environment at preflight. Real DSP must work without interpretation.
-- Docker Desktop is installed but its daemon was initially stopped; startup verification in progress.
+- Docker Desktop and the local Supabase stack are running; source and runtime checks are recorded in ACCEPTANCE.md.
+- No-key operation and mocked provider/budget failures are tested. Live token preflight, output usefulness under the 1,200-token cap and paid-call latency remain untested without a credential.
+- A small local 1 CPU / 2 GB worker benchmark does not establish Render sizing or public concurrency capacity.
+- Raw audio is deleted after successful feature extraction. Failed/abandoned audio has a seven-day cleanup horizon while the worker runs; retained metadata, report revisions and queue archives need a capacity-based retention decision before broad public use.
 - Tier-specific device differences remain unknown unless supported by BTE-specific primary sources.
 - Public release gate is not passed by local verification.
