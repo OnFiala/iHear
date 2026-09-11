@@ -4,25 +4,26 @@ Evidence captured on 2026-09-11 on the local Apple Silicon development host. No 
 
 ## Final source and container checks
 
-- Test image: `sha256:a888064f0042222be6fa0d926df5f78b7675026bd26a1d1f0099ffda4c7002cb`, 478,785,382 bytes.
-- Image-contained `pytest -q`: 33 passed after the final audio-size contract alignment.
+- Integrated test image: `sha256:8c2a2652a32c3e9ae2befcf8604d8b8d58c74c76ff41a3998374a73dc157b9e3`, 478,789,426 bytes.
+- Production image: `sha256:0435cb662b338d85118dc4afecd6b63dd2d04e1b546d3e0755e82a1dc764cf9d`, 476,172,854 bytes; command `python -m ihear_worker.main`.
+- Image-contained `pytest -q`: 39 passed after final report-v2 integration. All 15 worker source/config file checksums match the running production container.
 - `python3 -m compileall -q worker/src worker/tests`: passed.
 - `git diff --check -- worker docs/AUDIO_PIPELINE.md config/models.json config/astra-pricing.json`: passed at the worker handoff.
 - The tests cover WAV/DSP boundaries, exact Astra request and token-count parity, fail-closed token accounting, reservation release and overage freeze paths, provider ambiguity, no-key behavior, raw-audio custody retry, lease loss, fixed runtime settings, and searchable PDF content.
 
 ## Real model runtime probe
 
-The probe generated a ten-second signal in memory and used the checksum-verified artifacts in the Docker `ihear_models` volume. It wrote no audio file.
+The integrated production-image probe generated a ten-second signal in memory and used the checksum-verified artifacts in the Docker `ihear_models` volume, mounted read-only. Docker enforced `--cpus=1 --memory=2g`. It wrote no audio file. These numbers supersede the earlier uncapped development-image timing.
 
 ```json
-{"architecture":"aarch64","cold_load_and_inference_seconds":1.73,"duration_seconds":10,"maximum_rss_mib":702.6,"silero_fraction":0.0,"silero_status":"ready","warm_inference_seconds":0.041,"yamnet_status":"ready","yamnet_top_category":"Busy signal"}
+{"architecture":"aarch64","cold_load_and_inference_seconds":1.776,"duration_seconds":10,"maximum_rss_mib":685.9,"silero_fraction":0.0,"silero_status":"ready","warm_inference_seconds":0.105,"yamnet_status":"ready","yamnet_top_category":"Busy signal"}
 ```
 
 This is one local functional measurement, not a latency or memory guarantee. Silero's zero speech fraction and YAMNet's `Busy signal` label are expected model estimates for the synthetic 440 Hz tone, not fixture substitutions.
 
 ## PDF artifact
 
-A 12-moment synthetic report rendered as eight A4 pages and 16,016 bytes. Visual inspection of the first, first evidence, and final pages confirmed searchable/wrapped evidence tables, fixed-axis actual RMS dBFS labels, follow-up and aid context, approved patient tips, limitations, method notes kept with their text, and intact footers. The artifact stayed far below the 4,000,000-byte delivery limit.
+The final template-v2 report generated from the two physical phone-test events has two A4 pages, 5,015 bytes and 1,907 extracted searchable characters. Both rendered pages were inspected: explicit illustrative/synthetic-use text, clinic timezone and local captured times, actual RMS values on a fixed axis, visible quality flags and unavailable/paused interpretation, intact tables and footers. The browser fixture report also passed searchable-label inspection. Empty/silent cases have no invented chart values. All generated artifacts remained private and far below the 4,000,000-byte delivery limit.
 
 ## Dependencies
 
