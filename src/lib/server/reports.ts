@@ -3,7 +3,12 @@ import { query } from "./db";
 import { HttpError } from "./http";
 import { REPORT_VERSION } from "./constants";
 
-type ReportRow = { id: string; status: string; object_path: string | null };
+type ReportRow = {
+  id: string;
+  status: string;
+  object_path: string | null;
+  has_previous_report?: boolean;
+};
 
 export async function ensureReport(
   workspaceId: string,
@@ -22,7 +27,12 @@ export async function currentReport(
 ): Promise<{ status: string; reportId?: string; url?: string }> {
   const rows = await query<ReportRow>(
     `
-    select r.id, r.status, r.object_path
+    select r.id, r.status, r.object_path,
+      exists (
+        select 1 from ihear.reports previous
+        where previous.patient_id = p.id
+          and previous.workspace_id = p.workspace_id
+      ) as has_previous_report
     from ihear.patients p
     left join ihear.reports r on r.patient_id = p.id and r.workspace_id = p.workspace_id
       and r.input_revision = p.report_revision and r.report_version = $3
@@ -32,7 +42,10 @@ export async function currentReport(
     [patientId, workspaceId, REPORT_VERSION],
   );
   if (!rows[0]) throw new HttpError(404, "Patient not found.");
-  if (!rows[0].id) return { status: "not_requested" };
+  if (!rows[0].id)
+    return {
+      status: rows[0].has_previous_report ? "outdated" : "not_requested",
+    };
   return {
     status: rows[0].status,
     reportId: rows[0].id,

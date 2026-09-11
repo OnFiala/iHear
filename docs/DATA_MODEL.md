@@ -9,7 +9,7 @@ This document is the exact backend contract for the local milestone. The migrati
 - `QUEUE_NAME=ihear_jobs`, a durable logged pgmq queue.
 - `PIPELINE_VERSION=1`, `REPORT_VERSION=1`.
 - Audio object key: `<workspace_id>/<patient_id>/<event_id>.wav`.
-- Report object key: `<workspace_id>/<patient_id>/<report_id>.pdf`.
+- Report object key: `<workspace_id>/<patient_id>/<report_id>/<attempt_id>.pdf`.
 - Queue payload: `{"jobId":"<uuid>","kind":"event_analysis|report","version":1}`. The database row, not the queue message, is authoritative.
 
 The server reads these five values from environment variables and defaults to the listed local values. It rejects a runtime override that does not match the applied migration, preventing the application and worker from silently addressing different infrastructure. A future rename/version bump therefore requires a migration and runtime configuration change together.
@@ -89,18 +89,18 @@ Budget reservation locks the singleton global account, counts usage across every
 The worker uses direct Postgres, schema-qualified calls, and transactions. It never updates lease or budget fields ad hoc.
 
 1. Read one durable message with `pgmq.read('ihear_jobs', visibility_timeout_seconds, 1)`.
-2. Call `ihear.claim_job(job_id, worker_id, lease_seconds)`. An empty result means another worker owns it, it is delayed, or it is terminal.
+2. Generate a fresh opaque UUID for this claim attempt, then call `ihear.claim_job(job_id, attempt_id, lease_seconds)`. Never reuse a process, host, or container identifier as the attempt ID. An empty result means another worker owns it, it is delayed, or it is terminal. The database rejects non-UUID claim identifiers.
    While processing, heartbeat with `ihear.renew_job_lease(job_id, worker_id, lease_seconds)`. It returns `true` only while the same worker owns an unexpired running lease and atomically extends both the job lease and pgmq visibility. `false` means ownership was lost; the worker must stop without persisting or completing. Lease seconds are bounded to 10–1800.
 3. For `event_analysis`, download the path from `events.audio_object_path`, validate again, persist DSP with `ihear.persist_analysis(...)`, then delete the audio object only after that transaction commits and call idempotent `ihear.mark_audio_deleted(event_id, expected_path)`. The path remains as an audit reference while `audio_deleted_at` proves retention cleanup.
 4. Before a paid call, reject ambiguous evidence locally and persist `held_ambiguity`; otherwise call `ihear.reserve_api_budget(workspace_id, patient_id, event_id, job_id, kind, model, maximum_cost_usd, idempotency_key, false)`. It returns JSON with `status` equal to `reserved`, `existing`, `held_budget`, `held_budget_frozen`, `held_event_limit`, or `held_ambiguity`, plus `usageId` when reserved/existing.
 5. On provider success call `ihear.settle_api_budget(usage_id, actual_cost_usd, provider_request_id)`. On a pre-call abort call `ihear.release_api_budget(usage_id)`. If actual provider cost exceeds the reservation, call `ihear.settle_api_budget_overage(...)`, persist a terminal interpretation failure, and do not classify it as ambiguity.
-6. Persist interpretation with `ihear.persist_interpretation(...)`.
+6. Persist interpretation with `ihear.persist_interpretation(...)`. For a ready report, upload only to `<workspace_id>/<patient_id>/<report_id>/<attempt_id>.pdf` and pass that exact path to `ihear.persist_report_result(...)`. This keeps objects from separate lease attempts disjoint; a worker that loses its lease may delete only the object under its own attempt ID.
 7. Call `ihear.finish_job(job_id, worker_id, result)` only after durable outputs exist. It archives the current pgmq message.
 8. For retryable failure call `ihear.retry_job(job_id, worker_id, error, delay_seconds)`; this archives the old message and sends a new delayed message, bounded by `max_attempts`. For permanent failure call `ihear.fail_job(job_id, worker_id, error)`.
 
 All worker functions are `SECURITY INVOKER`, live only in private schema `ihear`, have a fixed `search_path`, and are revoked from `PUBLIC`, `anon`, and `authenticated`. The trusted database roles retain execute access. pgmq is not exposed through `pgmq_public`.
 
-`persist_analysis`, `persist_interpretation`, `persist_report_result`, `finish_job`, `retry_job`, and `fail_job` all require the caller's lease to remain unexpired. Report persistence also locks and compares the report's `input_revision` with the current patient `report_revision`; `report_input_stale` means the worker must discard any obsolete PDF object and terminally fail the old job. A later POST creates the new-revision report/job.
+`renew_job_lease`, `persist_analysis`, `persist_interpretation`, `persist_report_result`, `finish_job`, `retry_job`, and `fail_job` all compare the caller's attempt ID with the currently leased `jobs.worker_id`; persistence and completion also require the lease to remain unexpired. A reclaimed job has a different attempt ID, so an earlier attempt cannot renew, persist, or finish it. Report persistence also locks and compares the report's `input_revision` with the current patient `report_revision`; `report_input_stale` means the worker must discard only its attempt-specific obsolete PDF object and terminally fail the old job. A later POST creates the new-revision report/job.
 
 ## Search contract
 

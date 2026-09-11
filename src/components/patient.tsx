@@ -822,6 +822,18 @@ export function PatientEvent({ id }: { id: string }) {
                   Astra interpretation is unavailable for this moment.
                 </p>
               )}
+              {event.interpretation?.status === "held_budget" && (
+                <p className="caption">
+                  This demo has reached its interpretation limit. Your moment
+                  and acoustic results are saved.
+                </p>
+              )}
+              {event.interpretation?.status === "held_ambiguity" && (
+                <p className="caption">
+                  No interpretation was completed for this sample. Your
+                  clinician can still review its acoustic results.
+                </p>
+              )}
             </section>
             {event.interpretation?.result?.tip_ids
               ?.filter((id) => tips[id])

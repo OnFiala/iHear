@@ -158,23 +158,34 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
       [eventIds[0]],
     );
     const jobId = ownJob.rows[0].id;
+    const attemptA = randomUUID();
+    const attemptB = randomUUID();
+    await client.query("savepoint invalid_worker_id");
+    await assert.rejects(
+      client.query("select * from ihear.claim_job($1, $2, 180)", [
+        jobId,
+        "stable-worker-name",
+      ]),
+      /invalid_job_lease/,
+    );
+    await client.query("rollback to savepoint invalid_worker_id");
     const claim = await client.query(
       "select * from ihear.claim_job($1, $2, 180)",
-      [jobId, "test-worker"],
+      [jobId, attemptA],
     );
     const secondClaim = await client.query(
       "select * from ihear.claim_job($1, $2, 180)",
-      [jobId, "other-worker"],
+      [jobId, attemptB],
     );
     assert.equal(claim.rowCount, 1);
     assert.equal(secondClaim.rowCount, 0);
     const renewed = await client.query<{ renewed: boolean }>(
       "select ihear.renew_job_lease($1, $2, 180) as renewed",
-      [jobId, "test-worker"],
+      [jobId, attemptA],
     );
     const wrongRenewal = await client.query<{ renewed: boolean }>(
       "select ihear.renew_job_lease($1, $2, 180) as renewed",
-      [jobId, "other-worker"],
+      [jobId, attemptB],
     );
     assert.equal(renewed.rows[0].renewed, true);
     assert.equal(wrongRenewal.rows[0].renewed, false);
@@ -184,22 +195,42 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
     );
     await client.query("savepoint expired_finish");
     await assert.rejects(
-      client.query("select ihear.finish_job($1, $2)", [jobId, "test-worker"]),
+      client.query("select ihear.finish_job($1, $2)", [jobId, attemptA]),
       /job_lease_not_owned/,
     );
     await client.query("rollback to savepoint expired_finish");
     const reclaimed = await client.query(
       "select * from ihear.claim_job($1, $2, 180)",
-      [jobId, "test-worker"],
+      [jobId, attemptB],
     );
     assert.equal(reclaimed.rowCount, 1);
+    const staleRenewal = await client.query<{ renewed: boolean }>(
+      "select ihear.renew_job_lease($1, $2, 180) as renewed",
+      [jobId, attemptA],
+    );
+    assert.equal(staleRenewal.rows[0].renewed, false);
+    await client.query("savepoint stale_attempt_persist");
+    await assert.rejects(
+      client.query(
+        "select ihear.persist_analysis($1, $2, 'ready', $3, $4)",
+        [jobId, attemptA, { duration_seconds: 1 }, { pipeline: "stale" }],
+      ),
+      /job_lease_not_owned/,
+    );
+    await client.query("rollback to savepoint stale_attempt_persist");
+    await client.query("savepoint stale_attempt_finish");
+    await assert.rejects(
+      client.query("select ihear.finish_job($1, $2)", [jobId, attemptA]),
+      /job_lease_not_owned/,
+    );
+    await client.query("rollback to savepoint stale_attempt_finish");
     const analysis = await client.query<{ id: string }>(
       "select ihear.persist_analysis($1, $2, 'ready', $3, $4) as id",
-      [jobId, "test-worker", { duration_seconds: 1 }, { pipeline: "test" }],
+      [jobId, attemptB, { duration_seconds: 1 }, { pipeline: "test" }],
     );
     await client.query(
       "select ihear.persist_interpretation($1, $2, $3, 'unavailable', 'v1', 'held_ambiguity', null, $4)",
-      [jobId, "test-worker", analysis.rows[0].id, { reason: "test" }],
+      [jobId, attemptB, analysis.rows[0].id, { reason: "test" }],
     );
     await client.query("select ihear.mark_audio_deleted($1, $2)", [
       eventIds[0],
@@ -207,7 +238,7 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
     ]);
     await client.query("select ihear.finish_job($1, $2, $3)", [
       jobId,
-      "test-worker",
+      attemptB,
       { ok: true },
     ]);
     const completed = await client.query<{
@@ -310,10 +341,40 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
       "select id from ihear.jobs where report_id = $1 and kind = 'report'",
       [report.rows[0].value.reportId],
     );
+    const reportAttemptA = randomUUID();
+    const reportAttemptB = randomUUID();
     await client.query("select * from ihear.claim_job($1, $2, 180)", [
       reportJob.rows[0].id,
-      "report-worker",
+      reportAttemptA,
     ]);
+    await client.query(
+      "update ihear.jobs set lease_expires_at = now() - interval '1 second' where id = $1",
+      [reportJob.rows[0].id],
+    );
+    await client.query("select * from ihear.claim_job($1, $2, 180)", [
+      reportJob.rows[0].id,
+      reportAttemptB,
+    ]);
+    await client.query("savepoint stale_report_attempt");
+    await assert.rejects(
+      client.query("select ihear.persist_report_result($1, $2, 'ready', $3)", [
+        reportJob.rows[0].id,
+        reportAttemptA,
+        `${workspaceA}/${patientA}/${report.rows[0].value.reportId}/${reportAttemptA}.pdf`,
+      ]),
+      /job_lease_not_owned/,
+    );
+    await client.query("rollback to savepoint stale_report_attempt");
+    await client.query("savepoint shared_report_path");
+    await assert.rejects(
+      client.query("select ihear.persist_report_result($1, $2, 'ready', $3)", [
+        reportJob.rows[0].id,
+        reportAttemptB,
+        `${workspaceA}/${patientA}/${report.rows[0].value.reportId}.pdf`,
+      ]),
+      /invalid_report_object_path/,
+    );
+    await client.query("rollback to savepoint shared_report_path");
     const queuedAfterReport = randomUUID();
     const queuedReservation = await reserveEvent(queuedAfterReport, 7);
     await client.query(
@@ -337,15 +398,15 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
     await assert.rejects(
       client.query("select ihear.persist_report_result($1, $2, 'ready', $3)", [
         reportJob.rows[0].id,
-        "report-worker",
-        `${workspaceA}/${patientA}/${report.rows[0].value.reportId}.pdf`,
+        reportAttemptB,
+        `${workspaceA}/${patientA}/${report.rows[0].value.reportId}/${reportAttemptB}.pdf`,
       ]),
       /report_input_stale/,
     );
     await client.query("rollback to savepoint stale_report");
     await client.query(
       "select ihear.fail_job($1, $2, 'Report input changed while the report was generated.')",
-      [reportJob.rows[0].id, "report-worker"],
+      [reportJob.rows[0].id, reportAttemptB],
     );
 
     await client.query("savepoint browser_grant");

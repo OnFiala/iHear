@@ -781,6 +781,19 @@ export function PatientCard({ id }: { id: string }) {
                       )}
                     </div>
                   </div>
+                  {report?.status === "failed" && (
+                    <p className="notice error" role="alert">
+                      The report could not be prepared. Your listening moments
+                      are preserved. Try preparing an updated report after
+                      processing finishes.
+                    </p>
+                  )}
+                  {report?.status === "outdated" && (
+                    <p className="notice" role="status">
+                      New information arrived after the report was requested.
+                      Prepare an updated report when processing finishes.
+                    </p>
+                  )}
                   {events.length === 0 ? (
                     <div className="empty-state compact glass">
                       <h3>A first moment is waiting.</h3>

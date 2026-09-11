@@ -73,7 +73,12 @@ export function Loading({ label = "Loading your space…" }: { label?: string })
   );
 }
 export function Status({ value }: { value: string }) {
-  const clean = value.replaceAll("_", " ").replaceAll("-", " ");
+  const labels: Record<string, string> = {
+    held_budget: "budget paused",
+    held_ambiguity: "interpretation paused",
+  };
+  const clean =
+    labels[value] || value.replaceAll("_", " ").replaceAll("-", " ");
   return (
     <span
       className={
