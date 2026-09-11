@@ -1,0 +1,26 @@
+{
+  "model": "gpt-6-astra",
+  "source": "https://developers.openai.com/api/docs/pricing",
+  "verified_at": "2026-09-11",
+  "threshold_input_tokens": 272000,
+  "standard_usd_per_million_tokens": {
+    "input": 10.0,
+    "cached_input": 1.0,
+    "cache_write_input": 12.5,
+    "output_including_reasoning": 50.0
+  },
+  "request_limits": {
+    "reasoning_effort": "low",
+    "maximum_request_body_bytes": 6000,
+    "input_token_count_endpoint": "/v1/responses/input_tokens",
+    "max_input_tokens_reserved": 8000,
+    "max_output_tokens": 1200,
+    "maximum_cost_usd": 0.16
+  },
+  "application_limits_usd": {
+    "global_total": 20.0,
+    "global_daily": 3.0
+  },
+  "event_interpretations_per_patient_per_clinic_day": 5,
+  "clinic_timezone": "Europe/Prague"
+}

@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ihear-worker"
+version = "0.1.0"
+description = "CPU audio analysis, bounded Astra interpretation, and PDF reporting for iHear"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  "httpx==0.28.1",
+  "numpy==1.26.4",
+  "onnxruntime==1.20.1",
+  "psycopg[binary]==3.2.3",
+  "reportlab==4.2.5",
+  "scipy==1.14.1",
+  "tensorflow==2.18.1",
+]
+
+[project.optional-dependencies]
+test = [
+  "pypdf==5.1.0",
+  "pytest==8.3.4",
+  "pytest-cov==6.0.0",
+]
+
+[project.scripts]
+ihear-worker = "ihear_worker.main:main"
+ihear-download-models = "ihear_worker.model_download:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ihear_worker"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]

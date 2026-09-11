@@ -1,0 +1,23 @@
+{
+  "manifest_version": 1,
+  "models": {
+    "silero_vad": {
+      "version": "6.2.1",
+      "format": "onnx",
+      "url": "https://raw.githubusercontent.com/snakers4/silero-vad/v6.2.1/src/silero_vad/data/silero_vad.onnx",
+      "sha256": "1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3",
+      "path": "silero-vad/6.2.1/silero_vad.onnx",
+      "license": "MIT",
+      "license_url": "https://github.com/snakers4/silero-vad/blob/v6.2.1/LICENSE"
+    },
+    "yamnet": {
+      "version": "1",
+      "format": "tensorflow_saved_model_tar_gz",
+      "url": "https://tfhub.dev/google/yamnet/1?tf-hub-format=compressed",
+      "sha256": "b80da2a1a56926fb0767205051a200dd7b3beaf3ea1ea126c42a53943996e5e0",
+      "path": "yamnet/1",
+      "license": "Apache-2.0",
+      "license_url": "https://github.com/tensorflow/models/blob/master/LICENSE"
+    }
+  }
+}
