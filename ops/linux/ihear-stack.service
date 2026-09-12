@@ -1,0 +1,25 @@
+[Unit]
+Description=iHear local Supabase and CPU worker
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+Before=ihear-web.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=ondrej
+Group=ondrej
+SupplementaryGroups=docker
+WorkingDirectory=/home/ondrej/iHear
+Environment=PATH=/home/ondrej/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=HOME=/home/ondrej
+Environment=PYTHONDONTWRITEBYTECODE=1
+UMask=0077
+ExecStart=/usr/bin/python3 /home/ondrej/iHear/scripts/linux.py start
+ExecStop=/usr/bin/python3 /home/ondrej/iHear/scripts/linux.py stop
+TimeoutStartSec=600
+TimeoutStopSec=180
+
+[Install]
+WantedBy=multi-user.target

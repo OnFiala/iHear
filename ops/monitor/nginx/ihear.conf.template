@@ -1,0 +1,64 @@
+# The only request log for this virtual server is privacy-bounded JSONL.
+# $uri is used only as input to a closed map; no raw path or query is emitted.
+map $uri $ihear_route_class {
+    default                                      other;
+    =/                                           home;
+    =/clinic                                     clinic;
+    =/clinic/patients/new                        clinic_patient_new;
+    ~^/clinic/patients/[^/]+/?$                  clinic_patient;
+    ~^/pair/[^/]+/?$                             pair;
+    =/app                                        patient_home;
+    =/app/pair                                   patient_pair;
+    ~^/app/events/[^/]+/?$                       patient_event;
+    =/api/session                                api_session;
+    ~^/api/pair/[^/]+/?$                         api_pair;
+    ~^/api/events(?:/[^/]+)?/?$                  api_events;
+    ~^/api/patients(?:/[^/]+)?/?$                api_patients;
+    ~^/api/patients/[^/]+/report(?:/download)?/?$ api_report;
+    ~^/_next/                                    static_asset;
+    =/sw.js                                      service_worker;
+    =/manifest.webmanifest                      manifest;
+}
+
+map $cookie_ihear_visit $ihear_visitor {
+    "~^[0-9a-f]{32}$" $cookie_ihear_visit;
+    default          $request_id;
+}
+
+map $cookie_ihear_visit $ihear_set_visit_cookie {
+    "~^[0-9a-f]{32}$" "";
+    default "ihear_visit=$request_id; Max-Age=2592000; Path=/; Secure; HttpOnly; SameSite=Lax";
+}
+
+log_format ihear_privacy escape=json
+    '{"timestamp":"$time_iso8601","unix_timestamp":$msec,'
+    '"request_id":"$request_id","method":"$request_method",'
+    '"route":"$ihear_route_class","status":$status,'
+    '"duration_seconds":$request_time,"bytes":$bytes_sent,'
+    '"visitor":"$ihear_visitor"}';
+
+server {
+    listen 127.0.0.1:8080;
+    server_name _;
+
+    access_log /var/log/ihear/access.jsonl ihear_privacy;
+    # Error messages may contain raw request targets. Failure status remains in access.jsonl.
+    error_log /dev/null crit;
+    add_header Set-Cookie $ihear_set_visit_cookie always;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Host $http_host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Request-ID $request_id;
+        proxy_read_timeout 75s;
+        client_body_timeout 20s;
+        client_max_body_size 3m;
+        # Keep the bounded upload in memory so nginx does not persist audio in temp files.
+        client_body_buffer_size 3m;
+        client_body_in_single_buffer on;
+    }
+}

@@ -1,0 +1,14 @@
+/var/log/ihear/access.jsonl {
+    daily
+    maxsize 10M
+    rotate 7
+    missingok
+    notifempty
+    compress
+    delaycompress
+    create 0640 www-data ihear-monitor
+    sharedscripts
+    postrotate
+        /usr/sbin/nginx -s reopen
+    endscript
+}

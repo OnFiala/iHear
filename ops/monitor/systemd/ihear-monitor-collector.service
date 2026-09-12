@@ -1,0 +1,18 @@
+[Unit]
+Description=iHear bounded operations metrics collector
+After=docker.service
+
+[Service]
+Type=oneshot
+User=root
+Group=ihear-monitor
+UMask=0027
+EnvironmentFile=-/etc/ihear/monitor.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 /usr/local/lib/ihear-monitor/collector.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/ihear-monitor
+ReadOnlyPaths=/var/log/ihear

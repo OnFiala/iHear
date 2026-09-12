@@ -1,0 +1,27 @@
+[Unit]
+Description=iHear private read-only operations dashboard
+After=network-online.target ihear-monitor-collector.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ihear-monitor
+Group=ihear-monitor
+UMask=0077
+EnvironmentFile=/etc/ihear/monitor.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 /usr/local/lib/ihear-monitor/server.py --bind 127.0.0.1 --port 9080
+Restart=on-failure
+RestartSec=3s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadOnlyPaths=/var/lib/ihear-monitor
+
+[Install]
+WantedBy=multi-user.target
