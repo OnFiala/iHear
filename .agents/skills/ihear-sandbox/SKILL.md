@@ -11,8 +11,12 @@ the pinned public host fingerprint and private HTTPS origins. It contains no key
 material and stays outside Git. If it is missing, retrieve the current iHear
 sandbox CORTEX record or ask for the binding; do not infer another laptop or IP.
 
-Start with `python3 scripts/sandbox.py status`. This checks SSH configuration and
-remote identity before collecting status. A connection error is not permission
+On the MacBook authoring host, start with `python3 scripts/sandbox.py status`.
+This checks SSH configuration and remote identity before collecting status.
+If already operating on the verified Linux host as `ondrej` in
+`/home/ondrej/iHear`, use `python3 scripts/linux.py status` and local systemd
+inspection; do not SSH back into the same machine or install the MacBook alias.
+A connection error is not permission
 to disable strict host-key checks, read a private key, or scan unrelated hosts.
 
 - The MacBook repository is the authoring source; the Linux checkout is deployed

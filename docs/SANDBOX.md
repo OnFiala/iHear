@@ -174,7 +174,43 @@ cleanup.
 
 ## Acceptance evidence
 
-Deployment and behavioral verification are in progress. Final evidence will
-record the source revision, Linux worker image, bound listeners, current host
-utilization, real DSP/report workflow, dashboard authentication/log contract,
-reboot and physical-lid coverage. This paragraph must be updated before handoff.
+Verified on 2026-09-12 against clean runtime commit
+`07c57099c1b28ded53f938753e339ee5adc8aaa9`. The later handoff documentation/skill
+commit does not change the deployed application, launcher, monitor or unit files.
+
+| Check | Observed result |
+| --- | --- |
+| Runtime contract | 11/11 isolated Python tests passed |
+| Monitor contract | 16/16 tests passed, including identity, ingestion, rotation, unknown states and physical-interface selection |
+| Ubuntu x86_64 worker | 39/39 tests passed under 1 CPU / 2 GiB, with no network or runtime credentials |
+| Private application | 10/10 existing browser journeys passed: pairing, both PCM actions, real DSP, isolation, search, offline retry, PDF reuse and scanner/revocation |
+| Actual model/data state | 4 ready analyses with ready Silero/YAMNet provenance; 1 ready PDF; 0 unfinished jobs, API usage rows or raw audio objects |
+| Dashboard ingress | Owner tailnet HTTPS 200; absent/wrong identity on loopback 403; 13 iHear containers observed |
+| Logs | Live rotation retained 0640 ownership; 442 source rows matched 442 ingested rows; synthetic private path/query marker absent from log files and telemetry SQLite |
+| Route classes | Nine live exact/regex route probes matched the corrected map |
+| Closed lid | Owner physically closed the lid; Linux reported closed continuously through setup, DSP work and reboot |
+| Approved reboot | Requested 13:48:18 UTC; SSH and all main services verified by 13:50:18 UTC; no manual boot interaction requested; data, env hash and telemetry retained |
+| Boot timing | systemd-analyze reported 58.628s (10.062s firmware, 6.702s loader, 1.999s kernel, 39.863s userspace); this excludes shutdown time |
+
+The deployed worker image is
+`sha256:7712114f462d0ba6dd004ff67cb81c3a813f31d0de20ab328167380cd8eefe3e`;
+the Next BUILD_ID is `vByxsc45d-wJkiEcUjAbw`. Both match the runtime manifest.
+Applied migration head remains `20260911182710_default_report_template_version_2`.
+The Linux database is separate from the MacBook's earlier phone-test database;
+no patient data or browser capabilities were copied between them.
+
+After the synthetic workflow, the host used about 2.9 GiB RAM with 4.6 GiB available,
+worker usage was 472.5 MiB and the web unit used about 131 MiB. The sampled maximum
+during this setup/test window was 3.16 GiB RAM; samples can miss short peaks.
+Non-root usable disk space was 192 GiB after installation. The machine is accepted
+for this bounded private sandbox, not for an unmeasured public load.
+
+Initial verification logs keep their original coarse `other` classifications
+before the route-map repair. Planned maintenance can also leave real 502 rows;
+history was preserved rather than cleaned to make the dashboard appear healthier.
+Detailed local evidence is in ignored `.local/sandbox/` on the authoring host.
+
+Automatic boot after complete power loss, long-duration thermal behavior and
+external outage notifications are unverified/unconfigured. The dashboard itself
+cannot send a notification while its host is offline. Physical iOS and hearing-aid
+limitations from ACCEPTANCE.md still apply.

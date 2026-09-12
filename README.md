@@ -10,7 +10,11 @@ One English-first Next.js application provides a patient PWA and clinician inter
 This repository is publicly visible proprietary source, **not an open-source release**. You may view and fork it on GitHub under GitHub's terms. Reuse, redistribution, sublicensing or deployment of original code/assets requires written permission, subject to applicable statutory and platform rights. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md). This does not establish trademark availability or ownership of ideas.
 
 ## Implementation
-See [status](docs/STATUS.md), [decisions](docs/DECISIONS.md), [acceptance](docs/ACCEPTANCE.md) and [cloud migration](docs/CLOUD_MIGRATION.md). The coherent `implementation/local-milestone` branch starts at the initial documentation baseline; `main` is fast-forwarded to the reviewed local milestone so the default branch contains the working application. No public application has been deployed.
+See [status](docs/STATUS.md), [decisions](docs/DECISIONS.md), [acceptance](docs/ACCEPTANCE.md),
+[sandbox operations](docs/SANDBOX.md) and the future [cloud migration](docs/CLOUD_MIGRATION.md).
+The working application and reviewed private Linux infrastructure are published
+as source; the exact deployed runtime revision is recorded in the sandbox runbook.
+No public application has been deployed.
 
 ## Run locally
 

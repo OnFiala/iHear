@@ -1,12 +1,28 @@
 # Implementation status
 
-Updated 2026-09-11. **Local implementation and automated end-to-end verification: PASS. Physical iOS coverage: PARTIAL. Public application release: NOT RUN.** No public application or paid cloud resource was provisioned.
+Updated 2026-09-12. **Private Linux sandbox and monitored closed-lid reboot: PASS.
+Local application end-to-end verification: PASS. Physical iOS coverage: PARTIAL.
+Public application release: NOT RUN.** No public application or paid cloud resource
+was provisioned. Interpretation API use is intentionally disabled.
 
-2026-09-12 infrastructure update: the owner authorized a dedicated Ubuntu ThinkPad
-sandbox, no interpretation API, OpenClaw paused with data preserved, closed-lid
-operation and private operational monitoring. Linux integration is in progress;
-the canonical runbook is [SANDBOX.md](SANDBOX.md). The original local milestone
-evidence below describes the MacBook and must not be read as Linux runtime proof.
+The dedicated Ubuntu ThinkPad runs independently of the MacBook. OpenClaw is
+disabled/stopped with its data retained. The exact runtime checkout is
+`07c57099c1b28ded53f938753e339ee5adc8aaa9`; its protected manifest matches the
+running worker image and Next build. Later source changes in this handoff only
+record evidence and improve the skill's host-selection instructions.
+The canonical operating entrypoint is [SANDBOX.md](SANDBOX.md).
+
+Linux evidence: 11 runtime-contract tests, 16 monitor tests, 39 isolated x86_64
+worker tests and 10 browser end-to-end tests passed. Four synthetic events have
+real ready Silero/YAMNet results; one PDF is ready; no raw audio object, unfinished
+job or API usage remains. The approved reboot at 13:48:18 UTC returned all services
+automatically, with unchanged configuration and retained data/logs, while the lid
+stayed closed. Dashboard identity, protected log modes, rotation/ingestion and nine
+live route classifications passed. This is a private single-worker sandbox test,
+not a public concurrency benchmark or proof of recovery after exhausted battery.
+
+The original milestone evidence below describes the MacBook on 2026-09-11 and must
+not be read as additional current Linux or physical-phone proof.
 
 ## Source and authority
 
@@ -24,7 +40,7 @@ Native-rate PCM moves through private Supabase Storage to a single Docker worker
 
 Jobs have bounded retries, renewable leases and a fresh UUID for every claim. Old attempts cannot overwrite newer state or delete another attempt's PDF. DSP survives interpretation failure. Duplicate uploads reuse one event/analysis and never trigger another paid call. Report template v2 preserves historical caches, shows no invented empty-chart measurement, labels illustrative use, uses clinic-local timestamps, and schedules at 08:00 one clinic-local calendar day before follow-up. Changed inputs show an outdated-report notice.
 
-## Current local runtime
+## MacBook development runtime (2026-09-11 evidence)
 
 ```bash
 cd /Users/ondrej/iHear
@@ -74,6 +90,12 @@ Final small-data snapshot: Postgres 13,372,563 bytes; `ihear` tables/indexes 1,2
 
 ## Next authorized work and rollback
 
-There is no remaining local implementation task in this milestone. Optional owner inputs are an app Astra credential for bounded live validation and physical iOS test observations. Future cloud allocation is one Vercel application, one Supabase demo project plus isolated preview data, and one Render Docker worker. Exact variables, migration/seed order, QR re-pairing, model installation, rollback and the separate public-release gate are in CLOUD_MIGRATION.md.
+The private Linux sandbox is delivered; its current operations and rollback are
+in SANDBOX.md. Interpretation API use remains off under the latest owner decision.
+Physical iOS/hearing-aid observations and a real AC-loss/firmware recovery test are
+still separate evidence. Future cloud allocation, if authorized later, is one
+Vercel application, one Supabase demo project plus isolated preview data, and one
+Render Docker worker. CLOUD_MIGRATION.md preserves that future plan and its public
+release gate; no cloud resource is required for the current private sandbox.
 
 Local rollback: stop only iHear through the launcher, preserve Supabase data and the API ledger, check out a compatible prior Git revision, align pipeline/report configuration, rebuild, and verify. Keep schema changes additive; do not undo migrations by resetting live local data. The application is deliberately left running for the owner. Temporary browser verification sessions are closed; no delegated agent remains active.
