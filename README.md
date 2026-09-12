@@ -11,7 +11,8 @@ This repository is publicly visible proprietary source, **not an open-source rel
 
 ## Implementation
 See [status](docs/STATUS.md), [decisions](docs/DECISIONS.md), [acceptance](docs/ACCEPTANCE.md),
-[sandbox operations](docs/SANDBOX.md) and the future [cloud migration](docs/CLOUD_MIGRATION.md).
+[sandbox operations](docs/SANDBOX.md), [security and public release](docs/SECURITY.md)
+and the future [cloud migration](docs/CLOUD_MIGRATION.md).
 The working application and reviewed private Linux infrastructure are published
 as source; the exact deployed runtime revision is recorded in the sandbox runbook.
 No public application has been deployed.

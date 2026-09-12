@@ -12,6 +12,14 @@ binding, with a project skill and `docs/SANDBOX.md` as the operating entrypoint.
 Visual redesign proposals are a separate task; this infrastructure work preserves
 the application UI.
 
+The owner additionally required the sandbox decision to be integrated into the
+main project and runtime, with direct connection details excluded from public
+artifacts and explicit protection against abuse before Product Hunt exposure.
+`docs/SECURITY.md` owns this boundary. The current sandbox stays private; public
+source publication does not authorize public application activation. A protected
+public domain through an outbound tunnel is a proposal pending domain/account,
+isolation, admission, capacity and deployment evidence.
+
 - Product name iHear; English-first application, documentation and reports.
 - Patient PWA and clinician web interface in one application. Public demo without a login screen.
 - Local implementation first; future public runtime independent of the MacBook.

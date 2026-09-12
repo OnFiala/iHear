@@ -26,7 +26,7 @@ def main() -> None:
         raise RuntimeError(f"Missing private host binding: {BINDING}")
     target = json.loads(BINDING.read_text())
     if args.action == "binding":
-        print(json.dumps(target, indent=2))
+        print(json.dumps({"configured": True, "schemaVersion": target.get("schema_version")}))
         return
     alias = target["ssh_alias"]
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", alias):
@@ -58,7 +58,7 @@ def main() -> None:
         f"test \"$(id -un)\" = {shlex.quote(target['user'])}",
         f"test \"$(getent passwd \"$(id -un)\" | cut -d: -f6)\" = {shlex.quote(target['home'])}",
         f"test \"$(ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | awk '{{print $2}}')\" = {shlex.quote(target['host_key_fingerprint'])}",
-        "printf 'Identity verified\\n'", "hostname", "uptime", "free -h", "df -h /",
+        "printf 'Identity verified\\n'", "uptime", "free -h", "df -h /",
         f"cd {shlex.quote(remote_root)}", "git status --short --branch", "git rev-parse HEAD",
         "python3 scripts/linux.py status",
         "systemctl is-active ihear-stack.service ihear-web.service ihear-monitor-dashboard.service ihear-monitor-collector.timer || true",
@@ -73,6 +73,5 @@ if __name__ == "__main__":
         main()
     except (RuntimeError, OSError, KeyError, ValueError, subprocess.SubprocessError) as exc:
         # Do not print command payloads or runtime environment contents.
-        message = exc.stderr.strip() if isinstance(exc, subprocess.CalledProcessError) and exc.stderr else str(exc)
-        print(f"Sandbox inspection failed: {message}", file=sys.stderr)
+        print("Sandbox inspection failed. Check the private binding, strict SSH identity and host availability locally.", file=sys.stderr)
         sys.exit(1)

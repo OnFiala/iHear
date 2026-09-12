@@ -13,19 +13,19 @@ import os
 from pathlib import Path
 import platform
 import pwd
-import socket
+import stat
 import subprocess
 from typing import Any
 from urllib.parse import urlsplit
 
 import local as local_runtime
+from runtime_identity import validate_runtime_identity
 
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL = ROOT / ".local"
 EXPECTED_ROOT = Path("/home/ondrej/iHear")
 EXPECTED_HOME = Path("/home/ondrej")
-EXPECTED_HOSTNAME = "openclaw-appliance"
 LOCAL_BIN = EXPECTED_HOME / ".local/bin"
 NODE_BIN = LOCAL_BIN / "node"
 PNPM_BIN = LOCAL_BIN / "pnpm"
@@ -34,6 +34,7 @@ SUPABASE_DB = "supabase_db_iHear"
 SUPABASE_KONG = "supabase_kong_iHear"
 WORKER_IMAGE = "ihear-worker:local"
 ARTIFACT_MANIFEST = LOCAL / "linux-artifacts.json"
+RUNTIME_IDENTITY = LOCAL / "sandbox/runtime.json"
 COMPOSE = [
     "docker",
     "compose",
@@ -63,7 +64,7 @@ def run(
         capture_output=capture,
     )
     if check and result.returncode != 0:
-        raise RuntimeError(f"{command[0]} command failed with exit code {result.returncode}.")
+        raise RuntimeError(f"A required local command failed with exit code {result.returncode}.")
     return result
 
 
@@ -94,11 +95,10 @@ def validate_host() -> None:
         raise RuntimeError("The dedicated runtime must run Ubuntu 24.04.")
     if ROOT.resolve() != EXPECTED_ROOT:
         raise RuntimeError(f"Run the canonical checkout at {EXPECTED_ROOT}.")
-    if socket.gethostname() != EXPECTED_HOSTNAME:
-        raise RuntimeError(f"The dedicated runtime hostname must be {EXPECTED_HOSTNAME}.")
     operator = pwd.getpwuid(os.geteuid())
     if Path(operator.pw_dir).resolve() != EXPECTED_HOME or operator.pw_name != "ondrej":
         raise RuntimeError("Run this command as operator ondrej with home /home/ondrej.")
+    validate_runtime_identity(RUNTIME_IDENTITY, expected_uid=operator.pw_uid)
 
 
 def validate_tools(env: dict[str, str], *, require_daemon: bool = True) -> None:
@@ -196,8 +196,7 @@ def validate_private_origin(origin: str | None) -> str:
     return origin.rstrip("/")
 
 
-def ensure_expected_origin(env: dict[str, str], origin: str | None) -> str:
-    origin = validate_private_origin(origin)
+def observed_tailscale_dns_name(env: dict[str, str]) -> str:
     result = run(["tailscale", "status", "--json"], env=env, capture=True)
     try:
         status = json.loads(result.stdout)
@@ -206,10 +205,77 @@ def ensure_expected_origin(env: dict[str, str], origin: str | None) -> str:
         raise RuntimeError("Tailscale did not report this node's DNS name.") from error
     if not dns_name:
         raise RuntimeError("Tailscale did not report this node's DNS name.")
+    return dns_name
+
+
+def ensure_expected_origin(env: dict[str, str], origin: str | None) -> str:
+    origin = validate_private_origin(origin)
+    dns_name = observed_tailscale_dns_name(env)
     parsed = urlsplit(origin)
     if parsed.hostname.lower() != dns_name or parsed.port != 8446:
         raise RuntimeError("APP_PUBLIC_ORIGIN must match this Tailscale node DNS name on HTTPS port 8446.")
     return f"https://{dns_name}:8446"
+
+
+def _contains_enabled_funnel(value: object) -> bool:
+    if isinstance(value, dict):
+        return any(_contains_enabled_funnel(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_enabled_funnel(item) for item in value)
+    return bool(value)
+
+
+def ensure_private_ingress(env: dict[str, str], *, require_app: bool) -> None:
+    """Accept only the private app/dashboard Serve mappings for this node."""
+    dns_name = observed_tailscale_dns_name(env)
+    result = run(["tailscale", "serve", "status", "--json"], env=env, capture=True)
+    try:
+        config = json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        raise RuntimeError("Tailscale Serve configuration is unreadable.") from error
+    if not isinstance(config, dict):
+        raise RuntimeError("Tailscale Serve configuration is invalid.")
+    if not config:
+        if require_app:
+            raise RuntimeError("The required private Tailscale Serve mapping is missing.")
+        return
+
+    allowed_top_level = {"TCP", "Web", "AllowFunnel", "Services", "Foreground"}
+    if set(config) - allowed_top_level:
+        raise RuntimeError("Tailscale Serve contains an unexpected configuration section.")
+    if _contains_enabled_funnel(config.get("AllowFunnel")):
+        raise RuntimeError("Tailscale Funnel must remain disabled for the private runtime.")
+    if config.get("Services") or config.get("Foreground"):
+        raise RuntimeError("Tailscale Serve contains an unexpected service mapping.")
+
+    tcp = config.get("TCP") or {}
+    web = config.get("Web") or {}
+    funnels = config.get("AllowFunnel") or {}
+    if not isinstance(tcp, dict) or not isinstance(web, dict) or not isinstance(funnels, dict):
+        raise RuntimeError("Tailscale Serve configuration is invalid.")
+
+    expected = {
+        "8446": (f"{dns_name}:8446", "http://127.0.0.1:8080"),
+        "9443": (f"{dns_name}:9443", "http://127.0.0.1:9080"),
+    }
+    present: set[str] = set()
+    for port, tcp_config in tcp.items():
+        expected_mapping = expected.get(str(port))
+        if expected_mapping is None or tcp_config != {"HTTPS": True}:
+            raise RuntimeError("Tailscale Serve contains an unexpected TCP mapping.")
+        host, upstream = expected_mapping
+        if web.get(host) != {"Handlers": {"/": {"Proxy": upstream}}}:
+            raise RuntimeError("Tailscale Serve contains an unexpected HTTPS handler.")
+        present.add(str(port))
+
+    expected_hosts = {expected[port][0] for port in present}
+    if set(web) != expected_hosts:
+        raise RuntimeError("Tailscale Serve contains an unexpected HTTPS host or handler.")
+    allowed_funnel_hosts = {mapping[0] for mapping in expected.values()}
+    if set(funnels) - allowed_funnel_hosts:
+        raise RuntimeError("Tailscale Serve contains an unexpected Funnel host.")
+    if require_app and "8446" not in present:
+        raise RuntimeError("The required private Tailscale Serve mapping is missing.")
 
 
 def existing_start_origin() -> str:
@@ -242,6 +308,68 @@ def current_next_build_id() -> str:
     if not build_id:
         raise RuntimeError("The prepared Next.js BUILD_ID is empty.")
     return build_id
+
+
+def make_web_artifacts_readable(path: Path | None = None) -> None:
+    """Grant only traversal/read bits needed by the dedicated web account."""
+    root = ROOT / ".next" if path is None else path
+    try:
+        root_metadata = root.lstat()
+    except OSError as error:
+        raise RuntimeError("The prepared Next.js artifact directory is missing.") from error
+    if stat.S_ISLNK(root_metadata.st_mode) or not stat.S_ISDIR(root_metadata.st_mode):
+        raise RuntimeError("The prepared Next.js artifact root must be a non-symlink directory.")
+
+    for current, directory_names, file_names in os.walk(root, followlinks=False):
+        current_path = Path(current)
+        current_path.chmod(stat.S_IMODE(current_path.lstat().st_mode) | 0o005)
+        for directory_name in list(directory_names):
+            child = current_path / directory_name
+            metadata = child.lstat()
+            if stat.S_ISLNK(metadata.st_mode):
+                directory_names.remove(directory_name)
+            elif not stat.S_ISDIR(metadata.st_mode):
+                raise RuntimeError("The prepared Next.js artifacts contain an invalid directory entry.")
+        for file_name in file_names:
+            child = current_path / file_name
+            metadata = child.lstat()
+            if stat.S_ISLNK(metadata.st_mode):
+                continue
+            if not stat.S_ISREG(metadata.st_mode):
+                raise RuntimeError("The prepared Next.js artifacts contain an invalid file entry.")
+            child.chmod(stat.S_IMODE(metadata.st_mode) | 0o004)
+    ensure_web_artifacts_readable(root)
+
+
+def ensure_web_artifacts_readable(path: Path | None = None) -> None:
+    root = ROOT / ".next" if path is None else path
+    try:
+        root_metadata = root.lstat()
+    except OSError as error:
+        raise RuntimeError("The prepared Next.js artifact directory is missing.") from error
+    if (
+        stat.S_ISLNK(root_metadata.st_mode)
+        or not stat.S_ISDIR(root_metadata.st_mode)
+        or stat.S_IMODE(root_metadata.st_mode) & 0o005 != 0o005
+    ):
+        raise RuntimeError("The prepared Next.js artifacts are not readable by the web service.")
+    for current, directory_names, file_names in os.walk(root, followlinks=False):
+        current_path = Path(current)
+        if stat.S_IMODE(current_path.lstat().st_mode) & 0o005 != 0o005:
+            raise RuntimeError("The prepared Next.js artifacts are not readable by the web service.")
+        for directory_name in list(directory_names):
+            child = current_path / directory_name
+            metadata = child.lstat()
+            if stat.S_ISLNK(metadata.st_mode):
+                directory_names.remove(directory_name)
+            elif not stat.S_ISDIR(metadata.st_mode):
+                raise RuntimeError("The prepared Next.js artifacts contain an invalid directory entry.")
+        for file_name in file_names:
+            metadata = (current_path / file_name).lstat()
+            if stat.S_ISLNK(metadata.st_mode):
+                continue
+            if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) & 0o004 != 0o004:
+                raise RuntimeError("The prepared Next.js artifacts are not readable by the web service.")
 
 
 def write_artifact_manifest(env: dict[str, str], git_head: str) -> None:
@@ -298,7 +426,7 @@ def protected_log(name: str, command: list[str], env: dict[str, str]) -> None:
         )
     path.chmod(0o600)
     if result.returncode != 0:
-        raise RuntimeError(f"{command[0]} command failed; inspect {path} as operator ondrej.")
+        raise RuntimeError(f"A required local command failed; inspect {path} as operator ondrej.")
 
 
 def supabase_containers(env: dict[str, str]) -> list[tuple[str, str]]:
@@ -408,10 +536,12 @@ def ensure_runtime_foundation(env: dict[str, str], origin: str | None) -> dict[s
 
 def prepare(env: dict[str, str], origin: str | None) -> None:
     origin = ensure_expected_origin(env, origin)
+    ensure_private_ingress(env, require_app=False)
     git_head = clean_git_head(env)
     ensure_runtime_foundation(env, origin)
     run(COMPOSE + ["build", "--pull=false", "worker"], env=env)
     run([str(PNPM_BIN), "build"], env=env)
+    make_web_artifacts_readable()
     if clean_git_head(env) != git_head:
         raise RuntimeError("The committed source changed during prepare; refusing to record artifacts.")
     write_artifact_manifest(env, git_head)
@@ -421,16 +551,18 @@ def prepare(env: dict[str, str], origin: str | None) -> None:
 def start(env: dict[str, str]) -> None:
     origin = existing_start_origin()
     origin = ensure_expected_origin(env, origin)
+    ensure_private_ingress(env, require_app=True)
+    ensure_web_artifacts_readable()
     git_head = clean_git_head(env)
     verify_artifact_manifest(env, git_head)
     if clean_git_head(env) != git_head:
         raise RuntimeError("The committed source changed during start preflight.")
-    values = ensure_runtime_foundation(env, origin)
+    ensure_runtime_foundation(env, origin)
     run(COMPOSE + ["up", "-d", "--no-build", "--pull", "never", "worker"], env=env)
     ensure_worker_network(env)
     print(
         "iHear Supabase and worker are running.\n"
-        f"Web origin for the systemd service: {values['APP_PUBLIC_ORIGIN']}\n"
+        "The private web origin is configured for the systemd service.\n"
         "Supabase API: http://127.0.0.1:54321\n"
         "Studio: http://127.0.0.1:54323"
     )
@@ -447,6 +579,20 @@ def stop(env: dict[str, str]) -> None:
 
 
 def status(env: dict[str, str]) -> None:
+    configured_origin = local_runtime.read_env().get("APP_PUBLIC_ORIGIN")
+    origin_configured = bool(configured_origin)
+    origin_matches_observed_identity = False
+    if origin_configured:
+        try:
+            ensure_expected_origin(env, configured_origin)
+        except RuntimeError:
+            pass
+        else:
+            origin_matches_observed_identity = True
+    origin_status = {
+        "originConfigured": origin_configured,
+        "originMatchesObservedIdentity": origin_matches_observed_identity,
+    }
     daemon = run(
         ["docker", "info", "--format", "{{.ServerVersion}}"],
         env=env,
@@ -454,7 +600,17 @@ def status(env: dict[str, str]) -> None:
         check=False,
     )
     if daemon.returncode != 0:
-        print(json.dumps({"dockerRunning": False, "supabaseRunning": False, "workerRunning": False}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "dockerRunning": False,
+                    "supabaseRunning": False,
+                    "workerRunning": False,
+                    **origin_status,
+                },
+                indent=2,
+            )
+        )
         return
     supabase = run(
         [str(PNPM_BIN), "exec", "supabase", "status", "-o", "json"],
@@ -468,7 +624,7 @@ def status(env: dict[str, str]) -> None:
         "supabaseRunning": supabase.returncode == 0,
         "workerRunning": worker.returncode == 0 and bool(worker.stdout.strip()),
         "webManagedBy": "systemd",
-        "pairingOrigin": local_runtime.read_env().get("APP_PUBLIC_ORIGIN"),
+        **origin_status,
     }
     print(json.dumps(payload, indent=2))
     if supabase.returncode == 0:

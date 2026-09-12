@@ -38,9 +38,28 @@ log_format ihear_privacy escape=json
     '"duration_seconds":$request_time,"bytes":$bytes_sent,'
     '"visitor":"$ihear_visitor"}';
 
+# Aggregate admission limits cannot be reset by changing a browser cookie or
+# spoofing a forwarded IP. These are private-host limits, not Internet DDoS protection.
+limit_req_zone $server_name zone=ihear_requests:1m rate=20r/s;
+limit_conn_zone $server_name zone=ihear_connections:1m;
+
 server {
     listen 127.0.0.1:8080;
     server_name _;
+    server_tokens off;
+
+    # Rendered by the installer from the authenticated Tailscale owner identity.
+    # Serve strips caller-supplied identity headers. Funnel provides none and fails closed.
+    if ($http_tailscale_user_login != "__IHEAR_PRIVATE_LOGIN__") { return 403; }
+
+    limit_req zone=ihear_requests burst=40 nodelay;
+    limit_req_status 429;
+    limit_conn ihear_connections 24;
+    limit_conn_status 429;
+    client_header_timeout 10s;
+    keepalive_timeout 15s;
+    keepalive_requests 100;
+    send_timeout 20s;
 
     access_log /var/log/ihear/access.jsonl ihear_privacy;
     # Error messages may contain raw request targets. Failure status remains in access.jsonl.
@@ -55,6 +74,12 @@ server {
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Request-ID $request_id;
+        # The application does not consume tailnet identities. Keep them at this boundary.
+        proxy_set_header Tailscale-User-Login "";
+        proxy_set_header Tailscale-User-Name "";
+        proxy_set_header Tailscale-User-Profile-Pic "";
+        proxy_set_header Tailscale-Headers-Info "";
+        proxy_connect_timeout 5s;
         proxy_read_timeout 75s;
         client_body_timeout 20s;
         client_max_body_size 3m;

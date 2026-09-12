@@ -8,6 +8,13 @@ The dashboard must listen on `127.0.0.1:9080`. Tailscale Serve is the only inten
 
 The app proxy listens on `127.0.0.1:8080`. Its JSONL log contains only time, request ID, method, an allowlisted route class, status, duration, response bytes, and a random-looking 30-day visitor cookie. The cookie provides no authentication. The log contains no raw path or query, IP address, user agent, name, health payload, body, credential, or capability cookie. The collector rejects fields outside this contract.
 
+The proxy requires the same authenticated tailnet owner as the dashboard and
+strips identity headers before forwarding to the app. `ops/linux/install.py`
+renders the single private-login placeholder into a root-owned mode-0600 nginx
+configuration; never copy the unresolved template directly into an active server.
+It also enforces aggregate request/connection/body limits. These private controls
+do not establish public DDoS protection; `docs/SECURITY.md` owns that release gate.
+
 “Browser visitors” is therefore a browser-cookie count, not a count of identified people. Deleted cookies, multiple browsers, and shared browsers affect it.
 
 ## Installed layout and requirements

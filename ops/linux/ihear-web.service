@@ -5,22 +5,52 @@ After=ihear-stack.service
 
 [Service]
 Type=simple
-User=ondrej
-Group=ondrej
-WorkingDirectory=/home/ondrej/iHear
-Environment=PATH=/home/ondrej/.local/bin:/usr/local/bin:/usr/bin:/bin
+User=ihear-web
+Group=ihear-web
+WorkingDirectory=/srv/ihear-web
+EnvironmentFile=/home/ondrej/iHear/.env.local
+Environment=PATH=/opt/ihear:/usr/bin:/bin
+Environment=HOME=/nonexistent
 Environment=NODE_ENV=production
 Environment=NEXT_TELEMETRY_DISABLED=1
-Environment=OPENAI_API_KEY=
+UnsetEnvironment=OPENAI_API_KEY
 UMask=0077
-ExecStart=/home/ondrej/.local/bin/node /home/ondrej/iHear/node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3000
+ExecStart=/opt/ihear/node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3000
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
-NoNewPrivileges=true
-PrivateTmp=true
+
+CacheDirectory=ihear-web
+CacheDirectoryMode=0700
+ProtectHome=tmpfs
 ProtectSystem=strict
-ReadWritePaths=/home/ondrej/iHear/.next
+BindReadOnlyPaths=/home/ondrej/iHear:/srv/ihear-web
+BindReadOnlyPaths=__IHEAR_NODE_BINARY__:/opt/ihear/node
+BindPaths=/var/cache/ihear-web:/srv/ihear-web/.next/cache
+
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=true
+PrivateDevices=true
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectProc=invisible
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+
+MemoryHigh=512M
+MemoryMax=768M
+CPUQuota=150%
+TasksMax=128
 
 [Install]
 WantedBy=multi-user.target

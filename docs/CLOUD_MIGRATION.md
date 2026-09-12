@@ -2,6 +2,12 @@
 
 Prepared on 2026-09-11. **No cloud project, paid worker or public application was provisioned.** The working local stack is Postgres + Storage + pgmq through Supabase CLI, one Docker CPU worker, and one Next.js application. Public GitHub visibility does not constitute a public application release.
 
+2026-09-12 update: the current runtime is the dedicated private Linux sandbox in
+[SANDBOX.md](SANDBOX.md). The resources below remain an earlier future allocation,
+not current infrastructure. A protected public-domain/tunnel alternative for the
+notebook is proposed in [SECURITY.md](SECURITY.md); its public-release gate must be
+resolved before choosing or activating either route.
+
 ## Resources and separation
 
 | Target resource | Purpose | Initial configuration |

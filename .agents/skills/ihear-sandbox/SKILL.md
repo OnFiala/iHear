@@ -11,6 +11,13 @@ the pinned public host fingerprint and private HTTPS origins. It contains no key
 material and stays outside Git. If it is missing, retrieve the current iHear
 sandbox CORTEX record or ask for the binding; do not infer another laptop or IP.
 
+Read `docs/SECURITY.md` before changing exposure or preparing public artifacts.
+Never echo the entire binding, private origins or SSH identity into shared output.
+The Linux runtime separately requires ignored `.local/sandbox/runtime.json`,
+schema `{ "schema_version": 1, "hostname": "verified-private-hostname" }`, owned
+by the runtime operator with mode 0600. Its hostname must match the current host;
+do not derive it automatically during startup to bypass identity validation.
+
 On the MacBook authoring host, start with `python3 scripts/sandbox.py status`.
 This checks SSH configuration and remote identity before collecting status.
 If already operating on the verified Linux host as `ondrej` in

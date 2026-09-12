@@ -4,6 +4,12 @@ Read this file at the start of every task. Canonical status: docs/STATUS.md; own
 For the dedicated Ubuntu notebook runtime, use `.agents/skills/ihear-sandbox/SKILL.md`
 and `docs/SANDBOX.md`; exact private host identity is in ignored `.local/sandbox/host.json`.
 The MacBook is the authoring source and `/home/ondrej/iHear` is the Linux runtime.
+Security and public-exposure authority live in `docs/SECURITY.md`. The notebook is
+the default private sandbox; a Product Hunt mention does not make it publicly deployed.
+Never publish actual sandbox IP/DNS/SSH identity or operator captures. Use ignored
+private bindings and placeholders. Run `scripts/check_public_source.py --require-binding`
+and the exact committed-tree check before publication. Linux host validation uses
+ignored `.local/sandbox/runtime.json`; ordinary diagnostics must redact private origins.
 
 - All product UI, documentation, comments, fixtures, errors and reports are English. Progress to Ondrej is Czech.
 - Preserve the two-action patient experience. No unrelated features, frameworks or infrastructure.
