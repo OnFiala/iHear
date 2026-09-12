@@ -18,6 +18,12 @@ no 5xx, from 160 requests at concurrency 16. This is an overload-control probe,
 not a public-capacity or volumetric DDoS benchmark.
 The private/public boundary and proposed hostname are in [SECURITY.md](SECURITY.md).
 
+The deployed security revision is `57d2c1c1f58e32ebdd4f3858e4287ab10385d5f1`.
+The final `main` handoff differs only in documentation; its application, worker,
+migrations, service configuration and operating scripts match that runtime source.
+The runtime keeps its valid original build manifest and was not restarted again
+for this documentation-only handoff.
+
 Browser evidence is deliberately cumulative: the worker repair revision passed
 9/10 in one run; the isolated profile/QR-scanner rerun passed 2/2. After the proxy
 burst adjustment, two accessibility/layout tests passed, then `/api/session`
