@@ -1,0 +1,12 @@
+services:
+  worker:
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@supabase_db_iHear:5432/postgres
+      SUPABASE_URL: http://supabase_kong_iHear:8000
+    networks:
+      - supabase_ihear
+
+networks:
+  supabase_ihear:
+    external: true
+    name: supabase_network_iHear

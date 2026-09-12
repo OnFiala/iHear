@@ -46,7 +46,7 @@ def read_env() -> dict[str, str]:
     return dict(line.split('=', 1) for line in path.read_text().splitlines() if line and not line.startswith('#') and '=' in line)
 
 
-def make_env(docker: dict[str, str], origin: str | None) -> dict[str, str]:
+def make_env(docker: dict[str, str], origin: str | None, *, force_offline: bool = False) -> dict[str, str]:
     result = run(['pnpm', 'exec', 'supabase', 'status', '-o', 'json'], env=docker, capture=True)
     local = json.loads(result.stdout)
     values = read_env()
@@ -54,6 +54,8 @@ def make_env(docker: dict[str, str], origin: str | None) -> dict[str, str]:
     defaults = {'APP_PUBLIC_ORIGIN': 'http://localhost:3000', 'DEV_ALLOWED_ORIGINS': 'http://localhost:3000,http://127.0.0.1:3000', 'IHEAR_RATE_LIMIT_SALT': secrets.token_hex(32), 'AUDIO_BUCKET': 'ihear-audio', 'REPORT_BUCKET': 'ihear-reports', 'QUEUE_NAME': 'ihear_jobs', 'PIPELINE_VERSION': '1', 'REPORT_VERSION': '2', 'OPENAI_API_KEY': '', 'ASTRA_MODEL': 'gpt-6-astra', 'ASTRA_REASONING_EFFORT': 'low', 'WORKER_CONCURRENCY': '1', 'CLINIC_TIMEZONE': 'Europe/Prague'}
     for key, value in defaults.items():
         values.setdefault(key, value)
+    if force_offline:
+        values['OPENAI_API_KEY'] = ''
     # Report template revisions must match the committed web/worker contract.
     values['REPORT_VERSION'] = '2'
     if origin:
