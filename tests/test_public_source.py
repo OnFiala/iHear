@@ -27,6 +27,27 @@ class PublicSourceTests(unittest.TestCase):
     def test_operator_placeholders_are_allowed(self):
         self.assertEqual(module.inspect("README.md", b"YOUR-MACHINE.YOUR-TAILNET.ts.net and 127.0.0.1", []), [])
 
+    def test_private_filename_is_detected_and_never_echoed_by_cli(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            private_name = "private-marker.example"
+            path = f"docs/{private_name}.txt"
+            (root / "docs").mkdir()
+            (root / path).write_text("safe")
+            binding = root / "binding.json"
+            binding.write_text(json.dumps({"hostname": private_name}))
+            output = io.StringIO()
+            with patch.object(module, "ROOT", root), patch.object(module, "PRIVATE_BINDING", binding), patch.object(module, "git", return_value=path.encode() + b"\0"), patch("sys.argv", ["check_public_source.py"]), redirect_stdout(output):
+                self.assertEqual(module.main(), 1)
+            self.assertIn("[redacted path]", output.getvalue())
+            self.assertIn("private-host-binding", output.getvalue())
+            self.assertNotIn(private_name, output.getvalue())
+
+    def test_tailnet_filename_is_detected_without_a_private_binding(self):
+        path = "docs/node." + "tailabcd" + ".ts.net.txt"
+        self.assertIn("tailnet-address", module.inspect(path, b"safe", []))
+        self.assertEqual(module.display_path(path, []), "[redacted path]")
+
     def test_sensitive_files_are_rejected_even_without_secret_pattern(self):
         for path in (".env.local", ".local/sandbox/host.json", "sample.wav", "test-results/result.txt", "data.sqlite"):
             with self.subTest(path=path):

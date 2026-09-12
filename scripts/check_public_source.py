@@ -67,13 +67,24 @@ def inspect(path: str, data: bytes, private: list[bytes]) -> list[str]:
         rules.append("private-artifact-path")
     if name.name.startswith(".env") and name.name != ".env.example":
         rules.append("environment-file")
+    path_bytes = path.encode()
     for label, pattern in CONTENT_RULES.items():
-        if pattern.search(data):
+        if pattern.search(data) or pattern.search(path_bytes):
             rules.append(label)
     lowered = data.lower()
-    if any(value in lowered for value in private):
+    if any(value in lowered or value in path_bytes.lower() for value in private):
         rules.append("private-host-binding")
     return rules
+
+
+def display_path(path: str, private: list[bytes]) -> str:
+    """Never echo a filename that itself contains protected connection metadata."""
+    data = path.encode()
+    if any(pattern.search(data) for pattern in CONTENT_RULES.values()) or any(
+        value in data.lower() for value in private
+    ):
+        return "[redacted path]"
+    return json.dumps(path)
 
 
 def git(*args: str) -> bytes:
@@ -103,7 +114,7 @@ def main() -> int:
             data = str(source.readlink()).encode() if source.is_symlink() else source.read_bytes()
         count += 1
         for rule in inspect(path, data, private):
-            print(f"FAIL {path}: {rule}")
+            print(f"FAIL {display_path(path, private)}: {rule}")
             failures += 1
     print(f"Scanned {count} tracked files; {failures} findings; private binding {'loaded' if private else 'not loaded'}.")
     return 1 if failures else 0
