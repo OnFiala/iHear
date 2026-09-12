@@ -1,5 +1,5 @@
 /* Only cache public shells and static assets. APIs, pairing links and recordings never enter Cache Storage. */
-const CACHE = "ihear-shell-v3";
+const CACHE = "ihear-shell-v5";
 const SHELL = [
   "/app",
   "/app/pair",
@@ -7,6 +7,7 @@ const SHELL = [
   "/manifest.webmanifest",
   "/icon.svg",
   "/app-icon.png",
+  "/app-icon-512.png",
 ];
 async function installShell() {
   const cache = await caches.open(CACHE);
@@ -21,7 +22,7 @@ async function installShell() {
         match[1].replaceAll("&amp;", "&"),
         self.location.origin,
       );
-      if (url.origin === self.location.origin) assets.add(url.href);
+      if (url.origin === self.location.origin && !url.search) assets.add(url.href);
     }
   }
   await cache.addAll([...assets]);
@@ -33,6 +34,7 @@ async function installShell() {
       const url = new URL(match[1], asset);
       if (
         url.origin === self.location.origin &&
+        !url.search &&
         url.pathname.startsWith("/_next/static/")
       )
         fonts.push(url.href);
@@ -63,6 +65,7 @@ self.addEventListener("fetch", (event) => {
   if (
     event.request.method !== "GET" ||
     url.origin !== self.location.origin ||
+    Boolean(url.search) ||
     url.pathname.startsWith("/api/") ||
     url.pathname.startsWith("/pair/")
   )

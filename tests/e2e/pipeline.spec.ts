@@ -117,6 +117,10 @@ test("both actions save real fake-device PCM; negative answers and DSP reach cor
   const p = phone.pages()[0];
   await p.getByRole("button", { name: "Enable microphone" }).click();
   await expect(p.getByText("Microphone on", { exact: true })).toBeVisible();
+  await p.reload();
+  await expect(p.getByText("Microphone on", { exact: true })).toBeVisible();
+  await expect(p.getByRole("button", { name: "Enable microphone", exact: true })).toHaveCount(0);
+  await expect(p.getByRole("button", { name: "I understand", exact: true })).toBeEnabled();
   const accessibility = await new AxeBuilder({ page: p })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
     .analyze();
@@ -180,14 +184,20 @@ test("both actions save real fake-device PCM; negative answers and DSP reach cor
   ).event;
   expect(detail.analysis.sample_rate).toBe(48000);
   expect(detail.analysis.duration_seconds).toBeCloseTo(10, 1);
+  expect(detail.analysis.level_timeline).toHaveLength(10);
+  expect(detail.analysis.level_timeline[0].start_seconds).toBe(0);
+  expect(detail.analysis.level_timeline.at(-1).end_seconds).toBe(10);
+  expect(detail.analysis.speech_activity.windows.length).toBeGreaterThan(0);
+  expect(detail.analysis.speech_activity.aggregation).toBe("valid-duration-weighted");
+  expect(detail.analysis.acoustic_categories.windows.length).toBeGreaterThan(0);
   expect(detail.analysis.spectral_centroid_hz).toBeGreaterThan(900);
   expect(detail.analysis.spectral_centroid_hz).toBeLessThan(1100);
   expect(detail.interpretation.status).toBe("unavailable");
   const clinic = owner.pages()[0];
   await clinic.reload();
-  await clinic.locator("#event-" + eventId + " > summary").click();
+  await expect(clinic.locator("#event-" + eventId)).toHaveAttribute("open", "");
   await clinic.screenshot({ path: "artifacts/clinician-compact.png", fullPage: true });
-  await clinic.locator("#event-" + eventId).getByText("Acoustic details", { exact: true }).click();
+  await expect(clinic.locator("#event-" + eventId).getByRole("heading", { name: "Recording evidence", exact: true })).toBeVisible();
   await expect(
     clinic.getByText("Relative spectral energy").first(),
   ).toBeVisible();
@@ -199,6 +209,13 @@ test("both actions save real fake-device PCM; negative answers and DSP reach cor
     path: "artifacts/clinician-results.png",
     fullPage: true,
   });
+  await clinic.setViewportSize({ width: 390, height: 844 });
+  await noHorizontalOverflow(clinic);
+  const clinicAccessibility = await new AxeBuilder({ page: clinic })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
+  expect(clinicAccessibility.violations.map((v) => v.id)).toEqual([]);
+  await clinic.screenshot({ path: "artifacts/clinician-results-mobile.png", fullPage: true });
+  await clinic.setViewportSize({ width: 1440, height: 1000 });
 });
 
 test("database full-text search finds profile notes and negative event content", async () => {
@@ -242,7 +259,6 @@ test("other visitors and patient-only capabilities cannot read or mutate clinici
 test("offline capture survives reopening and foreground retry without duplicate events", async () => {
   const p = phone.pages()[0];
   await open(p, base + "/app");
-  await p.getByRole("button", { name: "Enable microphone" }).click();
   await expect(p.getByText("Microphone on", { exact: true })).toBeVisible();
   await p.waitForTimeout(1200);
   await phone.setOffline(true);

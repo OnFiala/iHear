@@ -15,7 +15,15 @@ import {
   WifiOff,
 } from "lucide-react";
 import { api, ApiError, dateLabel } from "@/lib/client/api";
-import { Microphone } from "@/lib/client/audio";
+import { Microphone, MicrophoneCancelledError } from "@/lib/client/audio";
+import {
+  forgetMicrophoneConsent,
+  hasMicrophoneConsent,
+  queryMicrophonePermission,
+  rememberMicrophoneConsent,
+  shouldAutoAcquireMicrophone,
+  type MicrophonePermissionState,
+} from "@/lib/client/microphone-access";
 import {
   flushPending,
   pendingFor,
@@ -30,12 +38,15 @@ import {
   type ListeningEvent,
 } from "@/lib/types";
 import { Header, ErrorBox, Loading, Status, EventList } from "./shared";
+import { useHomeScreenInstall } from "./home-screen-install";
 const PROFILE_KEY = "ihear-paired-profile";
 export function PatientHome() {
   const [patient, setPatient] = useState<Patient | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
-    [ready, setReady] = useState(false),
+    [micState, setMicState] = useState<
+      "off" | "ready" | "gesture-required"
+    >("off"),
     [enabling, setEnabling] = useState(false),
     [recording, setRecording] = useState(false),
     [message, setMessage] = useState(""),
@@ -46,11 +57,16 @@ export function PatientHome() {
     [environment, setEnvironment] = useState(""),
     [recent, setRecent] = useState(false),
     [aboutOpen, setAboutOpen] = useState(false),
-    [offline, setOffline] = useState(false);
+    [offline, setOffline] = useState(false),
+    [sessionRevoked, setSessionRevoked] = useState(false);
   const mic = useRef<Microphone | null>(null),
     recordingLock = useRef(false),
     about = useRef<HTMLDetailsElement | null>(null),
-    alive = useRef(true);
+    alive = useRef(true),
+    currentPatientId = useRef<string | null>(null);
+  const install = useHomeScreenInstall();
+  const ready = micState === "ready";
+  const captureAvailable = ready || micState === "gesture-required";
   useEffect(() => {
     alive.current = true;
     let cancelled = false;
@@ -60,6 +76,7 @@ export function PatientHome() {
         const s = await api<{ patient: Patient | null }>("/api/session");
         if (cancelled) return;
         setPatient(s.patient);
+        setSessionRevoked(false);
         if (s.patient)
           localStorage.setItem(PROFILE_KEY, JSON.stringify(s.patient));
         else localStorage.removeItem(PROFILE_KEY);
@@ -112,7 +129,8 @@ export function PatientHome() {
             (e.status === 401 || e.status === 403)
           ) {
             mic.current?.stop();
-            setReady(false);
+            setMicState("off");
+            setSessionRevoked(true);
             setError(
               "This pairing may have expired or been revoked. Pair the profile again. Pending moments remain on this device.",
             );
@@ -129,15 +147,7 @@ export function PatientHome() {
       void refresh();
     };
     const visibility = () => {
-      if (document.visibilityState === "hidden") {
-        mic.current?.stop();
-        setReady(false);
-        setMessage("Microphone paused. Enable it again when you return.");
-      } else retry();
-    };
-    const pagehide = () => {
-      mic.current?.stop();
-      setReady(false);
+      if (document.visibilityState === "visible") retry();
     };
     retry();
     const timer = setInterval(() => {
@@ -146,41 +156,136 @@ export function PatientHome() {
     window.addEventListener("online", retry);
     window.addEventListener("offline", retry);
     document.addEventListener("visibilitychange", visibility);
-    window.addEventListener("pagehide", pagehide);
     return () => {
       active = false;
       clearInterval(timer);
       window.removeEventListener("online", retry);
       window.removeEventListener("offline", retry);
       document.removeEventListener("visibilitychange", visibility);
-      window.removeEventListener("pagehide", pagehide);
     };
   }, [patient]);
-  async function enable() {
-    setEnabling(true);
-    setError("");
-    try {
-      mic.current?.stop();
-      mic.current = new Microphone(() => {
-        if (alive.current) {
-          setReady(false);
-          setMessage("Microphone paused. Enable it again to record.");
-        }
+
+  function microphone(): Microphone {
+    if (!mic.current)
+      mic.current = new Microphone((state) => {
+        if (!alive.current) return;
+        setMicState(state === "gesture-required" ? state : "off");
+        setMessage(
+          state === "gesture-required"
+            ? "Microphone paused. Tap either listening button to activate it."
+            : "Microphone access was interrupted. Try again when you are ready.",
+        );
       });
-      await mic.current.enable();
-      if (alive.current) {
-        setReady(true);
-        setMessage("");
+    return mic.current;
+  }
+
+  async function startMicrophone(userInitiated: boolean) {
+    if (!patient || sessionRevoked || document.visibilityState !== "visible")
+      return;
+    const patientId = patient.id;
+    setEnabling(true);
+    if (userInitiated) setError("");
+    try {
+      const state = await microphone().enable();
+      if (
+        !alive.current ||
+        currentPatientId.current !== patientId ||
+        document.visibilityState !== "visible"
+      ) {
+        mic.current?.stop();
+        return;
       }
+      if (userInitiated) rememberMicrophoneConsent(patientId);
+      setMicState(state);
+      setMessage(
+        state === "gesture-required"
+          ? "Microphone paused. Tap either listening button to activate it."
+          : "",
+      );
     } catch (e) {
-      setError((e as Error).message);
-      setReady(false);
+      if (!(e instanceof MicrophoneCancelledError) && alive.current)
+        setError((e as Error).message);
+      setMicState("off");
     } finally {
-      setEnabling(false);
+      if (alive.current) setEnabling(false);
     }
   }
+
+  useEffect(() => {
+    if (!patient || sessionRevoked) return;
+    const patientId = patient.id;
+    currentPatientId.current = patientId;
+    let active = true;
+    let permissionStatus: PermissionStatus | null = null;
+
+    const applyPermission = (state: MicrophonePermissionState) => {
+      if (!active) return;
+      const consented = hasMicrophoneConsent(patientId);
+      if (state === "denied" || state === "prompt") {
+        mic.current?.stop();
+        setMicState("off");
+        if (state === "denied" && consented)
+          setMessage(
+            "Microphone access is off in browser settings. Allow it there, then try again.",
+          );
+        return;
+      }
+      if (
+        shouldAutoAcquireMicrophone(
+          consented,
+          state,
+          document.visibilityState,
+        )
+      )
+        void startMicrophone(false);
+    };
+
+    const refreshPermission = async () => {
+      const status = await queryMicrophonePermission();
+      if (!active) return;
+      if (permissionStatus !== status) {
+        permissionStatus?.removeEventListener("change", permissionChanged);
+        permissionStatus = status;
+        permissionStatus?.addEventListener("change", permissionChanged);
+      }
+      applyPermission(status?.state ?? "unsupported");
+    };
+    const permissionChanged = () =>
+      applyPermission(permissionStatus?.state ?? "unsupported");
+    const visibilityChanged = () => {
+      if (document.visibilityState === "hidden") {
+        mic.current?.stop();
+        setMicState("off");
+        setEnabling(false);
+        if (hasMicrophoneConsent(patientId))
+          setMessage("Microphone paused while iHear was in the background.");
+      } else void refreshPermission();
+    };
+    const pageHidden = () => {
+      mic.current?.stop();
+      setMicState("off");
+    };
+
+    void refreshPermission();
+    document.addEventListener("visibilitychange", visibilityChanged);
+    window.addEventListener("pagehide", pageHidden);
+    return () => {
+      active = false;
+      currentPatientId.current = null;
+      permissionStatus?.removeEventListener("change", permissionChanged);
+      document.removeEventListener("visibilitychange", visibilityChanged);
+      window.removeEventListener("pagehide", pageHidden);
+      mic.current?.stop();
+      mic.current = null;
+      setMicState("off");
+    };
+  }, [patient, sessionRevoked]);
+
+  async function enable() {
+    await startMicrophone(true);
+  }
   async function capture(kind: "understood" | "difficult") {
-    if (!patient || recordingLock.current || !ready) return;
+    if (!patient || recordingLock.current || !captureAvailable) return;
     recordingLock.current = true;
     setRecording(true);
     setError("");
@@ -189,6 +294,7 @@ export function PatientHome() {
     const id = crypto.randomUUID();
     try {
       const audio = await mic.current!.capture();
+      setMicState("ready");
       const event: PendingEvent = {
         id,
         patientId: patient.id,
@@ -267,25 +373,38 @@ export function PatientHome() {
       });
   }
   const microphoneControl = (
-    <div className={"patient-mic-control " + (ready ? "mic-ready" : "")}>
-      {ready ? (
+    <div
+      className={
+        "patient-mic-control " +
+        (captureAvailable ? "mic-ready " : "") +
+        (micState === "gesture-required" ? "mic-resume" : "")
+      }
+    >
+      {captureAvailable ? (
         <>
           <span className="mic-status">
             {recording ? <AudioLines size={18} /> : <Mic size={18} />}
-            {recording ? "Recording this moment…" : "Microphone on"}
+            {recording
+              ? "Recording this moment…"
+              : micState === "gesture-required"
+                ? "Microphone paused"
+                : "Microphone on"}
           </span>
           <button
             className="text-button"
             disabled={recording}
             onClick={() => {
               mic.current?.stop();
-              setReady(false);
+              if (patient) forgetMicrophoneConsent(patient.id);
+              setMicState("off");
               setMessage("Microphone stopped.");
             }}
           >
             Stop
           </button>
         </>
+      ) : sessionRevoked ? (
+        <span className="mic-status">Pair again to use the microphone.</span>
       ) : (
         <button
           className="button microphone-button"
@@ -325,6 +444,12 @@ export function PatientHome() {
           <p className="caption">
             You can scan the QR code or enter its code manually.
           </p>
+          <p className="caption">
+            A Home Screen copy may use separate browser storage. If this profile
+            is missing after installation, pair it again with a fresh clinician
+            code.
+          </p>
+          {install.offer}
           <div className="patient-boundary">
             <ShieldCheck size={18} />
             <p>Illustrative demo. Use synthetic information only.</p>
@@ -363,7 +488,8 @@ export function PatientHome() {
           </div>
         )}
         {error && <ErrorBox message={error} />}{" "}
-        {questionEvent && ready && microphoneControl}
+        {install.offer}
+        {questionEvent && captureAvailable && microphoneControl}
         {questionEvent ? (
           <section className="glass questions patient-questionnaire">
             <h2>What was difficult?</h2>
@@ -421,7 +547,7 @@ export function PatientHome() {
           <>
             {recent ? (
               <>
-                {ready && microphoneControl}
+                {captureAvailable && microphoneControl}
                 <section className="recent-section" aria-label="History">
                   <h2>History</h2>
                   {events.length ? (
@@ -441,7 +567,7 @@ export function PatientHome() {
                 >
                   <button
                     className="understand-action"
-                    disabled={!ready || recording}
+                    disabled={!captureAvailable || recording}
                     onClick={() => capture("understood")}
                   >
                     <span className="action-symbol">
@@ -451,7 +577,7 @@ export function PatientHome() {
                   </button>
                   <button
                     className="difficult-action"
-                    disabled={!ready || recording}
+                    disabled={!captureAvailable || recording}
                     onClick={() => capture("difficult")}
                   >
                     <span className="action-symbol">
@@ -520,10 +646,23 @@ export function PatientHome() {
             >
               <summary>About & privacy</summary>
               <Link className="text-button" href="/app/pair">Pair another profile <ArrowRight size={16} /></Link>
+              {install.installed ? (
+                <p>iHear is open from your Home Screen.</p>
+              ) : (
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={install.openHelp}
+                >
+                  Home Screen access <ArrowRight size={16} />
+                </button>
+              )}
               <p>
-                The microphone starts only after you enable it. A moment can
-                include up to five seconds before and after your press. Leaving
-                the app stops it.
+                The microphone starts only after you enable it once for this
+                paired profile. If browser permission remains allowed, iHear can
+                prepare it again while the app is open. A moment can include up
+                to five seconds before and after your press. Leaving or hiding
+                the app stops the stream.
               </p>
               <p>
                 Offline moments stay on this device and retry when you reconnect.

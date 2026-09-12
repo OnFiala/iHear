@@ -63,7 +63,7 @@ Repeated synthetic browser runs reached the configured ten-new-workspaces-per-ad
 
 ## Physical iPhone evidence and remaining checks
 
-An owner-provided iPhone was available. The separately issued synthetic phone-test profile received one positive and one negative event, both 10 seconds at 48 kHz with 5 seconds pre / 5 seconds post. Both report the source label `iPhone Microphone` and actual echo cancellation disabled; other unsupported processing settings remain absent and routing is explicitly unknown. Both have real DSP, Silero and YAMNet output. The positive sample was very quiet/silent; that quality flag is preserved. This verifies reception and processing of those samples, not acoustic calibration, device routing or intelligibility.
+An owner-provided iPhone was available. The separately issued synthetic phone-test profile received one positive and one negative event, both 10 seconds at 48 kHz with 5 seconds pre / 5 seconds post. Both report the source label `iPhone Microphone` and actual echo cancellation disabled; other unsupported processing settings remain absent and routing is explicitly unknown. Both have real DSP, Silero and YAMNet output. The positive sample had a weak digital signal; its historical quality flag remains stored, but does not establish room quietness. This verifies reception and processing of those samples, not acoustic calibration, device routing or intelligibility.
 
 Await/record owner observation for lock/background, microphone restart and reopening with pairing preserved. Native-camera scanning, standalone installation, offline reopening on physical Safari and storage eviction are not certified by desktop emulation. Browser state contains capabilities and stays private.
 

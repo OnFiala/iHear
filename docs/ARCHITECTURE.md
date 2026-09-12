@@ -26,3 +26,24 @@ docs/DATA_MODEL.md contains the exact implemented SQL contract. Tables in privat
 
 
 Worker heartbeats renew both the database lease and pgmq visibility. All mutations require current ownership, and expired workers cannot finish/retry/fail jobs. Report publication checks the current input revision. DSP persists before interpretation; retry and reconciliation close raw-audio custody even after a crash between feature persistence and deletion.
+
+
+## Patient return and Home Screen access
+
+The patient home offers installation using the browser's native prompt when
+available, otherwise platform-specific Home Screen instructions. The manifest's
+stable ID and start URL are `/app`; no pairing token enters an installed shortcut.
+Existing HttpOnly patient capabilities remain valid for 30 days unless revoked.
+Installation does not extend this lifetime. A standalone copy may have separate
+browser storage, particularly on iOS, and must be paired if its profile is absent.
+
+A patient-scoped local flag remembers explicit microphone opt-in; it is not an
+authorization capability. Foreground reopening acquires a fresh stream only after
+this opt-in and where the browser permission permits it. Unsupported permission
+queries fall back to the browser's own getUserMedia permission enforcement. A
+suspended AudioContext leaves the two listening actions available to resume it
+from a gesture. Stop clears the opt-in. Hiding/leaving the app, revoked pairing,
+revoked permission and interrupted streams stop capture. The service worker caches
+only public shells/static assets without queries, never APIs, pairing capabilities
+or recordings. Browser permission persistence, standalone storage and physical
+phone lock behavior remain browser/OS dependent.

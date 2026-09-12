@@ -3,6 +3,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { encodeWav } from "../src/lib/client/audio";
+import {
+  captureSetting,
+  digitalLevelHeight,
+  qualityFlagLabel,
+} from "../src/lib/analysis";
 
 test("PCM WAV preserves sample rate, length, signed samples and clipping bounds", async () => {
   const blob = encodeWav(new Float32Array([-2, -0.5, 0, 0.5, 2]), 48000);
@@ -12,6 +17,27 @@ test("PCM WAV preserves sample rate, length, signed samples and clipping bounds"
   assert.equal(v.getUint32(40, true), 10);
   assert.equal(v.getInt16(44, true), -32768);
   assert.equal(v.getInt16(52, true), 32767);
+});
+
+test("acoustic presentation separates weak digital level from room quietness", () => {
+  assert.equal(
+    qualityFlagLabel("very_quiet"),
+    "Weak digital signal in this recording",
+  );
+  assert.equal(
+    qualityFlagLabel("weak_digital_signal"),
+    "Weak digital signal in this recording",
+  );
+  assert.equal(digitalLevelHeight(null), 0);
+  assert.ok(digitalLevelHeight(-20) > digitalLevelHeight(-60));
+  assert.equal(
+    captureSetting(
+      { trackSettings: { noiseSuppression: false } },
+      "noiseSuppression",
+    ),
+    false,
+  );
+  assert.equal(captureSetting({}, "noiseSuppression"), null);
 });
 function harness(sampleRate = 100) {
   let Klass: any;

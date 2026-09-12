@@ -36,25 +36,84 @@ export function encodeWav(samples: Float32Array, sampleRate: number): Blob {
   }
   return new Blob([buffer], { type: "audio/wav" });
 }
+
+export type MicrophoneAvailability = "ready" | "gesture-required";
+
+export class MicrophoneCancelledError extends Error {
+  constructor() {
+    super("Microphone setup was cancelled.");
+    this.name = "MicrophoneCancelledError";
+  }
+}
+
+type EnableAttempt = {
+  generation: number;
+  promise: Promise<MicrophoneAvailability>;
+  context?: AudioContext;
+  stream?: MediaStream;
+};
+
 export class Microphone {
   private context?: AudioContext;
   private stream?: MediaStream;
   private node?: AudioWorkletNode;
+  private generation = 0;
+  private enabling?: EnableAttempt;
+  private captureStarting = false;
   private pending?: {
     resolve: (value: CapturedAudio) => void;
     reject: (error: Error) => void;
     timer: ReturnType<typeof setTimeout>;
   };
-  constructor(private onInterrupted: () => void) {}
-  async enable() {
-    if (!navigator.mediaDevices?.getUserMedia)
-      throw new Error(
-        "A microphone needs a secure HTTPS connection or localhost.",
+  constructor(
+    private onInterrupted: (
+      state: "gesture-required" | "interrupted",
+    ) => void,
+  ) {}
+
+  enable(): Promise<MicrophoneAvailability> {
+    if (
+      this.context &&
+      this.context.state !== "closed" &&
+      this.stream &&
+      this.node
+    )
+      return Promise.resolve(
+        this.context.state === "running" ? "ready" : "gesture-required",
       );
-    this.context = new AudioContext();
-    await this.context.resume();
+    if (this.enabling) return this.enabling.promise;
+    if (!navigator.mediaDevices?.getUserMedia)
+      return Promise.reject(
+        new Error("A microphone needs a secure HTTPS connection or localhost."),
+      );
+    const attempt = {
+      generation: this.generation,
+      promise: undefined as unknown as Promise<MicrophoneAvailability>,
+    } satisfies EnableAttempt;
+    attempt.promise = this.build(attempt).finally(() => {
+      if (this.enabling === attempt) this.enabling = undefined;
+    });
+    this.enabling = attempt;
+    return attempt.promise;
+  }
+
+  private cancelled(attempt: EnableAttempt): boolean {
+    return attempt.generation !== this.generation;
+  }
+
+  private async build(
+    attempt: EnableAttempt,
+  ): Promise<MicrophoneAvailability> {
+    const context = new AudioContext();
+    attempt.context = context;
+    let stream: MediaStream | undefined;
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
+      // Autoplay may leave resume pending until a listening-button gesture.
+      // Finish setup so that gesture remains available in the interface.
+      if (context.state === "suspended")
+        void context.resume().catch(() => {});
+      if (this.cancelled(attempt)) throw new MicrophoneCancelledError();
+      stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
@@ -63,37 +122,48 @@ export class Microphone {
         },
         video: false,
       });
-      await this.context.audioWorklet.addModule("/pcm-worklet.js");
-      this.node = new AudioWorkletNode(this.context, "pcm-recorder");
-      this.context.createMediaStreamSource(this.stream).connect(this.node);
-      this.node.connect(this.context.destination);
-      this.stream.getAudioTracks()[0].addEventListener("ended", () => {
+      attempt.stream = stream;
+      if (this.cancelled(attempt)) throw new MicrophoneCancelledError();
+      await context.audioWorklet.addModule("/pcm-worklet.js");
+      if (this.cancelled(attempt)) throw new MicrophoneCancelledError();
+      const node = new AudioWorkletNode(context, "pcm-recorder");
+      context.createMediaStreamSource(stream).connect(node);
+      node.connect(context.destination);
+      const track = stream.getAudioTracks()[0];
+      if (!track) throw new Error("No microphone audio track was available.");
+
+      this.context = context;
+      this.stream = stream;
+      this.node = node;
+      attempt.context = undefined;
+      attempt.stream = undefined;
+
+      const interrupted = () => {
+        if (this.stream !== stream) return;
         this.stop();
-        this.onInterrupted();
-      });
-      this.stream.getAudioTracks()[0].addEventListener("mute", () => {
-        this.stop();
-        this.onInterrupted();
-      });
-      this.context.onstatechange = () => {
+        this.onInterrupted("interrupted");
+      };
+      track.addEventListener("ended", interrupted);
+      track.addEventListener("mute", interrupted);
+      context.onstatechange = () => {
+        if (this.context !== context || context.state === "closed") return;
         if (
-          this.context?.state === "suspended" ||
-          this.context?.state === ("interrupted" as AudioContextState)
+          context.state === "suspended" ||
+          context.state === ("interrupted" as AudioContextState)
         ) {
-          this.stop();
-          this.onInterrupted();
+          if (this.pending) interrupted();
+          else this.onInterrupted("gesture-required");
         }
       };
-      this.node.port.onmessage = ({ data }) => {
+      node.port.onmessage = ({ data }) => {
         if (data.type === "complete" && this.pending) {
           const pending = this.pending;
           this.pending = undefined;
           clearTimeout(pending.timer);
-          const track = this.stream!.getAudioTracks()[0];
           pending.resolve({
-            blob: encodeWav(data.samples, this.context!.sampleRate),
+            blob: encodeWav(data.samples, context.sampleRate),
             capture: {
-              sampleRate: this.context!.sampleRate,
+              sampleRate: context.sampleRate,
               preSeconds: data.preSeconds,
               postSeconds: data.postSeconds,
               trackSettings: track.getSettings(),
@@ -104,8 +174,12 @@ export class Microphone {
           });
         }
       };
+      return context.state === "running" ? "ready" : "gesture-required";
     } catch (e) {
-      this.stop();
+      stream?.getTracks().forEach((track) => track.stop());
+      if (context.state !== "closed") await context.close().catch(() => {});
+      if (e instanceof MicrophoneCancelledError || this.cancelled(attempt))
+        throw new MicrophoneCancelledError();
       if (e instanceof DOMException) {
         if (e.name === "NotAllowedError")
           throw new Error(
@@ -119,26 +193,48 @@ export class Microphone {
       throw e;
     }
   }
+
   capture(): Promise<CapturedAudio> {
-    if (!this.node || this.context?.state !== "running")
+    if (this.captureStarting || this.pending)
+      return Promise.reject(new Error("A moment is already recording."));
+    this.captureStarting = true;
+    return this.beginCapture().finally(() => {
+      this.captureStarting = false;
+    });
+  }
+
+  private async beginCapture(): Promise<CapturedAudio> {
+    const context = this.context;
+    const node = this.node;
+    if (!node || !context || !this.stream)
       return Promise.reject(
         new Error("Enable the microphone before saving a moment."),
       );
-    if (this.pending)
-      return Promise.reject(new Error("A moment is already recording."));
+    if (context.state !== "running") {
+      await context.resume().catch(() => {});
+      const resumedState = context.state as AudioContextState;
+      if (resumedState !== "running") {
+        this.onInterrupted("gesture-required");
+        throw new Error(
+          "The microphone is paused. Tap a listening button again to resume it.",
+        );
+      }
+    }
     return new Promise((resolve, reject) => {
       this.pending = {
         resolve,
         reject,
         timer: setTimeout(() => {
           this.stop();
-          this.onInterrupted();
+          this.onInterrupted("interrupted");
         }, 15000),
       };
-      this.node!.port.postMessage({ type: "capture" });
+      node.port.postMessage({ type: "capture" });
     });
   }
+
   stop() {
+    this.generation++;
     if (this.pending) {
       clearTimeout(this.pending.timer);
       this.pending.reject(
@@ -158,5 +254,16 @@ export class Microphone {
     this.stream = undefined;
     this.node?.disconnect();
     this.node = undefined;
+    const enabling = this.enabling;
+    if (enabling) {
+      enabling.stream?.getTracks().forEach((track) => track.stop());
+      enabling.stream = undefined;
+      const enablingContext = enabling.context;
+      enabling.context = undefined;
+      if (enablingContext && enablingContext.state !== "closed") {
+        enablingContext.onstatechange = null;
+        void enablingContext.close().catch(() => {});
+      }
+    }
   }
 }

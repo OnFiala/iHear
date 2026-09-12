@@ -71,9 +71,10 @@ class JobProcessor:
             analysis["acoustic_categories"] = categories
             provenance = {
                 "pipeline_version": self.settings.pipeline_version,
+                "feature_schema": "acoustic-detail-v1",
                 "dsp": {"numpy": version("numpy"), "scipy": version("scipy"), "rate": "native"},
                 "model_input_sample_rate": 16000,
-                "silero_vad": {"version": speech.get("version"), "status": speech.get("status")},
+                "silero_vad": {"version": speech.get("version"), "status": speech.get("status"), "aggregation": speech.get("aggregation")},
                 "yamnet": {"version": categories.get("version"), "status": categories.get("status")},
             }
             analysis_id = self.database.persist_analysis(job["id"], "ready", analysis, provenance)

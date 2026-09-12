@@ -38,6 +38,33 @@ def test_silence_and_clipping_are_reported() -> None:
     assert "clipping" in clipped["quality_flags"]
 
 
+def test_weak_recording_level_is_not_described_as_a_quiet_environment() -> None:
+    sample_rate = 16_000
+    time = np.arange(sample_rate * 2) / sample_rate
+    pcm = np.round(np.sin(2 * np.pi * 440 * time) * 80).astype(np.int16)
+    result = analyze_deterministic(decode_pcm16_mono_wav(make_wav(pcm, sample_rate)))
+    assert result["rms_dbfs"] < -45
+    assert "weak_digital_signal" in result["quality_flags"]
+    assert "very_quiet" not in result["quality_flags"]
+
+
+def test_digital_level_timeline_preserves_real_window_measurements() -> None:
+    sample_rate = 16_000
+    first = np.full(sample_rate, 1_000, dtype=np.int16)
+    second = np.full(sample_rate // 2, 10_000, dtype=np.int16)
+    result = analyze_deterministic(
+        decode_pcm16_mono_wav(make_wav(np.concatenate((first, second)), sample_rate))
+    )
+    timeline = result["level_timeline"]
+    assert len(timeline) == 2
+    assert timeline[0]["start_seconds"] == 0.0
+    assert timeline[0]["end_seconds"] == 1.0
+    assert timeline[1]["start_seconds"] == 1.0
+    assert timeline[1]["end_seconds"] == 1.5
+    assert timeline[1]["rms_dbfs"] > timeline[0]["rms_dbfs"]
+    assert timeline[0]["clipping_fraction"] == 0.0
+
+
 def test_duration_and_pcm_contract_are_enforced() -> None:
     too_long = np.zeros(int(16_000 * 10.2), dtype=np.int16)
     with pytest.raises(AudioValidationError, match="10.1"):

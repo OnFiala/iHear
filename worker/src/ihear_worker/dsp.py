@@ -13,6 +13,7 @@ from scipy.io import wavfile
 MAX_AUDIO_BYTES = 2_202_000
 MAX_DURATION_SECONDS = 10.1
 BANDS_HZ = ((80, 250), (250, 500), (500, 1000), (1000, 2000), (2000, 4000), (4000, 8000))
+LEVEL_WINDOW_SECONDS = 1.0
 
 
 class AudioValidationError(ValueError):
@@ -77,6 +78,26 @@ def _stft_power(audio: AudioBuffer) -> tuple[np.ndarray, np.ndarray]:
     return frequencies, np.square(np.abs(zxx), dtype=np.float64)
 
 
+def _level_timeline(audio: AudioBuffer) -> list[dict[str, float | None]]:
+    """Summarize the recorded digital waveform without implying calibrated loudness."""
+    window_samples = max(1, int(round(audio.sample_rate * LEVEL_WINDOW_SECONDS)))
+    windows: list[dict[str, float | None]] = []
+    for offset in range(0, audio.samples.size, window_samples):
+        end = min(audio.samples.size, offset + window_samples)
+        samples = audio.samples[offset:end].astype(np.float64, copy=False)
+        pcm = audio.pcm[offset:end].astype(np.int32, copy=False)
+        rms = float(np.sqrt(np.mean(np.square(samples))))
+        peak = float(np.max(np.abs(samples)))
+        windows.append({
+            "start_seconds": round(offset / audio.sample_rate, 3),
+            "end_seconds": round(end / audio.sample_rate, 3),
+            "rms_dbfs": _dbfs(rms),
+            "peak_dbfs": _dbfs(peak),
+            "clipping_fraction": round(float(np.mean(np.abs(pcm) >= 32767)), 6),
+        })
+    return windows
+
+
 def analyze_deterministic(audio: AudioBuffer) -> dict[str, Any]:
     samples64 = audio.samples.astype(np.float64, copy=False)
     rms = float(np.sqrt(np.mean(np.square(samples64))))
@@ -110,7 +131,7 @@ def analyze_deterministic(audio: AudioBuffer) -> dict[str, Any]:
     if audio.duration_seconds < 0.5:
         flags.append("too_short")
     if rms_dbfs is not None and rms_dbfs < -45.0:
-        flags.append("very_quiet")
+        flags.append("weak_digital_signal")
 
     return {
         "duration_seconds": round(audio.duration_seconds, 4),
@@ -122,6 +143,7 @@ def analyze_deterministic(audio: AudioBuffer) -> dict[str, Any]:
         "quality_flags": flags,
         "bands": bands,
         "spectral_centroid_hz": round(centroid, 2),
+        "level_timeline": _level_timeline(audio),
     }
 
 

@@ -27,10 +27,41 @@ export type Analysis = {
   quality_flags: string[];
   bands: { low_hz: number; high_hz: number; relative_energy: number }[];
   spectral_centroid_hz: number;
-  speech_activity: { status: string; fraction?: number };
+  level_timeline?: {
+    start_seconds: number;
+    end_seconds: number;
+    rms_dbfs: number | null;
+    peak_dbfs: number | null;
+    clipping_fraction: number;
+  }[];
+  speech_activity: {
+    status: string;
+    fraction?: number;
+    aggregation?: string;
+    mean_probability?: number;
+    threshold?: number;
+    model?: string;
+    version?: string;
+    windows?: {
+      start_seconds: number;
+      end_seconds: number;
+      active_fraction: number;
+      mean_probability: number;
+    }[];
+  };
   acoustic_categories: {
     status: string;
     categories?: { label: string; score: number }[];
+    model?: string;
+    version?: string;
+    aggregation?: string;
+    frame_window_seconds?: number;
+    frame_hop_seconds?: number;
+    windows?: {
+      start_seconds: number;
+      end_seconds: number;
+      categories: { label: string; score: number }[];
+    }[];
   };
 };
 export type ListeningEvent = {

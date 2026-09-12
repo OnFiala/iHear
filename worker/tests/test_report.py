@@ -53,7 +53,7 @@ def test_report_is_concise_chronological_and_preserves_clinical_evidence_boundar
                     "peak_dbfs": -4.0,
                     "clipping_fraction": 0.01,
                     "spectral_centroid_hz": 1800.0,
-                    "quality_flags": ["clipping"],
+                    "quality_flags": ["clipping", "very_quiet", "weak_digital_signal"],
                     "bands": [{"low_hz": 250, "high_hz": 500, "relative_energy": 0.25}],
                     "speech_activity": {"status": "ready", "fraction": 0.5, "version": "6.2.1"},
                     "acoustic_categories": {
@@ -116,6 +116,8 @@ def test_report_is_concise_chronological_and_preserves_clinical_evidence_boundar
     assert "10 Sep 2026, 11:00 CEST" in text
     assert "11 Sep 2026, 12:00 CEST" in text
     assert "RMS -22.5 dBFS" in text
+    assert "Weak digital signal in this recording; environmental loudness cannot be inferred" in text
+    assert "Very quiet" not in text
     assert "Sample rate 48000 Hz" in text
     assert "Spectral centroid 1800 Hz" in text
     assert "250-500 Hz 25.0%" in text

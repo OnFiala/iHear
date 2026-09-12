@@ -27,6 +27,11 @@ import type {
 } from "@/lib/types";
 import { difficulties, frequencies } from "@/lib/types";
 import {
+  captureSetting,
+  captureText,
+  settingLabel,
+} from "@/lib/analysis";
+import {
   Header,
   Footer,
   ErrorBox,
@@ -319,7 +324,9 @@ export function PatientForm({
             />
           </label>
           <label className="wide">
-            Note <span className="optional">optional</span>
+            <span className="field-label">
+              Note <span className="optional">(optional)</span>
+            </span>
             <textarea
               maxLength={500}
               rows={2}
@@ -506,6 +513,7 @@ export function PatientCard({ id }: { id: string }) {
     [error, setError] = useState(""),
     [editing, setEditing] = useState(false),
     [activeTab, setActiveTab] = useState<"moments" | "profile">("moments"),
+    [expandedMomentIds, setExpandedMomentIds] = useState<string[] | null>(null),
     [pairingOpen, setPairingOpen] = useState(false),
     [pairingBusy, setPairingBusy] = useState(false),
     [report, setReport] = useState<{ status: string; url?: string } | null>(
@@ -524,6 +532,9 @@ export function PatientCard({ id }: { id: string }) {
         if (active) {
           setPatient(result.patient);
           setEvents(result.events);
+          setExpandedMomentIds((current) =>
+            current ?? (result.events[0] ? [result.events[0].id] : []),
+          );
           if (result.pairing) setPairing(result.pairing);
           setError("");
         }
@@ -823,11 +834,23 @@ export function PatientCard({ id }: { id: string }) {
                   </div>
                 ) : (
                   <div className="detailed-events clinic-moment-list">
-                    {events.map((event) => (
+                    {events.map((event, index) => (
                       <details
                         className="glass event-detail-card clinic-moment-row"
                         id={"event-" + event.id}
                         key={event.id}
+                        open={expandedMomentIds?.includes(event.id) ?? index === 0}
+                        onToggle={(toggleEvent) => {
+                          const isOpen = toggleEvent.currentTarget.open;
+                          setExpandedMomentIds((current) => {
+                            const ids = current ?? [];
+                            return isOpen
+                              ? ids.includes(event.id)
+                                ? ids
+                                : [...ids, event.id]
+                              : ids.filter((value) => value !== event.id);
+                          });
+                        }}
                       >
                         <summary className="clinic-moment-summary">
                           <span className={"moment-icon " + event.kind}>
@@ -866,20 +889,34 @@ export function PatientCard({ id }: { id: string }) {
                           />
                         </summary>
                         <div className="clinic-moment-details">
-                          {event.kind === "difficult" && (
+                          <section className="clinic-reported-context">
+                            <h3>Patient report</h3>
                             <div className="reported-answers">
                               <span>
-                                <small>Difficulty</small>
-                                {event.difficulty || "Not provided"}
+                                <small>Listening result</small>
+                                {event.kind === "understood"
+                                  ? "Understood"
+                                  : "Difficult"}
                               </span>
-                              <span>
-                                <small>Surroundings</small>
-                                {event.environment || "Not provided"}
-                              </span>
+                              {event.kind === "difficult" && (
+                                <>
+                                  <span>
+                                    <small>Difficulty</small>
+                                    {event.difficulty || "Not provided"}
+                                  </span>
+                                  <span>
+                                    <small>Reported surroundings</small>
+                                    {event.environment || "Not provided"}
+                                  </span>
+                                </>
+                              )}
                             </div>
-                          )}
-                          <details className="clinic-acoustic-details">
-                            <summary>Acoustic details</summary>
+                            <p className="caption">
+                              Reported by the patient; this is context for the recording,
+                              not a model finding.
+                            </p>
+                          </section>
+                          <section className="clinic-acoustic-details" aria-label="Acoustic analysis">
                           {event.analysis ? (
                             <AcousticResult analysis={event.analysis} />
                           ) : (
@@ -931,9 +968,34 @@ export function PatientCard({ id }: { id: string }) {
                               )}
                             </section>
                           )}
-                          </details>
+                          </section>
                           <details className="clinic-capture-details">
-                            <summary>Capture and profile snapshot</summary>
+                            <summary>Recording quality and profile snapshot</summary>
+                            <div className="recording-evidence">
+                              <h3>Browser-reported capture</h3>
+                              <div className="recording-evidence-grid">
+                                <span>
+                                  <small>Input source</small>
+                                  {captureText(event.capture, "sourceLabel") || "Not reported"}
+                                </span>
+                                <span>
+                                  <small>Echo cancellation</small>
+                                  {settingLabel(captureSetting(event.capture, "echoCancellation"))}
+                                </span>
+                                <span>
+                                  <small>Noise suppression</small>
+                                  {settingLabel(captureSetting(event.capture, "noiseSuppression"))}
+                                </span>
+                                <span>
+                                  <small>Automatic gain control</small>
+                                  {settingLabel(captureSetting(event.capture, "autoGainControl"))}
+                                </span>
+                              </div>
+                              <p className="caption">
+                                The browser reports these settings. The selected hardware path
+                                and operating-system processing may still be unknown.
+                              </p>
+                            </div>
                             <p className="caption">
                               Phone microphone intended. Actual routing may be
                               unknown. Snapshot:{" "}

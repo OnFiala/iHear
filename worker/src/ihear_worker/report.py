@@ -296,7 +296,11 @@ def _technical_event_story(index: int, event: dict[str, Any], timezone: ZoneInfo
         rows.append(["Deterministic measurements", _measurement_detail(analysis)])
         if "quality_flags" in analysis:
             flags = analysis.get("quality_flags")
-            flag_text = ", ".join(_humanize(str(flag)) for flag in flags) if isinstance(flags, list) else "Unavailable"
+            flag_text = ", ".join(
+                "Weak digital signal in this recording; environmental loudness cannot be inferred"
+                if flag in {"very_quiet", "weak_digital_signal"} else _humanize(str(flag))
+                for flag in flags
+            ) if isinstance(flags, list) else "Unavailable"
             rows.append(["Quality flags", flag_text or "None"])
         bands = _band_summary(analysis.get("bands"))
         if bands:

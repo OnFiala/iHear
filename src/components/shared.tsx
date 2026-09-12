@@ -10,6 +10,11 @@ import {
 } from "lucide-react";
 import type { Analysis, ListeningEvent, ProfileInput } from "@/lib/types";
 import { dateLabel } from "@/lib/client/api";
+import {
+  digitalLevelHeight,
+  modelStatus,
+  qualityFlagLabel,
+} from "@/lib/analysis";
 export function Brand() {
   return (
     <Link href="/" className="brand" aria-label="iHear home">
@@ -75,7 +80,7 @@ export function Loading({ label = "Loading…" }: { label?: string }) {
 }
 export function Status({ value }: { value: string }) {
   const labels: Record<string, string> = {
-    ready: "Saved",
+    ready: "Analysed",
     processing: "Processing",
     uploading: "Uploading",
     failed: "Failed",
@@ -217,9 +222,21 @@ export function Audiogram({ data }: { data: ProfileInput["audiogram"] }) {
   );
 }
 export function AcousticResult({ analysis }: { analysis: Analysis }) {
+  const levelTimeline = analysis.level_timeline;
+  const speech = analysis.speech_activity || { status: "not_stored" };
+  const categories = analysis.acoustic_categories || { status: "not_stored" };
   return (
     <div className="acoustic-result">
-      <div className="metric-grid">
+      <div className="acoustic-result-heading acoustic-heading">
+        <div>
+          <h3>Recording evidence</h3>
+          <p className="caption">
+            Measurements from the saved phone waveform. dBFS is relative to the
+            digital recording limit; it does not measure room loudness or hearing level.
+          </p>
+        </div>
+      </div>
+      <div className="metric-grid acoustic-metrics">
         <div>
           <span>Sample duration</span>
           <strong>
@@ -236,12 +253,73 @@ export function AcousticResult({ analysis }: { analysis: Analysis }) {
           <span>Digital RMS level</span>
           <strong>
             {analysis.rms_dbfs === null
-              ? "Silence"
+              ? "No digital signal"
               : analysis.rms_dbfs.toFixed(1)}{" "}
             <small>{analysis.rms_dbfs !== null ? "dBFS" : ""}</small>
           </strong>
         </div>
+        <div>
+          <span>Digital peak level</span>
+          <strong>
+            {typeof analysis.peak_dbfs === "number"
+              ? analysis.peak_dbfs.toFixed(1)
+              : "Not stored"}{" "}
+            <small>{typeof analysis.peak_dbfs === "number" ? "dBFS" : ""}</small>
+          </strong>
+        </div>
+        <div>
+          <span>Clipped samples</span>
+          <strong>
+            {typeof analysis.clipping_fraction === "number"
+              ? (analysis.clipping_fraction * 100).toFixed(2)
+              : "Not stored"}{" "}
+            <small>{typeof analysis.clipping_fraction === "number" ? "%" : ""}</small>
+          </strong>
+        </div>
+        <div>
+          <span>Spectral centroid</span>
+          <strong>
+            {typeof analysis.spectral_centroid_hz === "number"
+              ? analysis.spectral_centroid_hz.toFixed(0)
+              : "Not stored"}{" "}
+            <small>{typeof analysis.spectral_centroid_hz === "number" ? "Hz" : ""}</small>
+          </strong>
+        </div>
       </div>
+      <h4>Digital level over time</h4>
+      {levelTimeline?.length ? (
+        <div
+          className="acoustic-level-timeline"
+          role="list"
+          aria-label="One-second digital RMS levels relative to full scale"
+        >
+          {levelTimeline.map((window) => (
+            <div
+              className="acoustic-level-window"
+              key={window.start_seconds}
+              role="listitem"
+              aria-label={`${window.start_seconds.toFixed(1)} to ${window.end_seconds.toFixed(1)} seconds: RMS ${
+                window.rms_dbfs === null ? "not measurable" : `${window.rms_dbfs.toFixed(1)} dBFS`
+              }, peak ${
+                window.peak_dbfs === null ? "not measurable" : `${window.peak_dbfs.toFixed(1)} dBFS`
+              }, ${(window.clipping_fraction * 100).toFixed(2)} percent clipped samples`}
+            >
+              <span className="acoustic-level-value">
+                {window.rms_dbfs === null ? "—" : window.rms_dbfs.toFixed(1)}
+              </span>
+              <span className="acoustic-level-track" aria-hidden="true">
+                <span
+                  className="acoustic-level-fill"
+                  style={{ height: `${digitalLevelHeight(window.rms_dbfs)}%` }}
+                />
+              </span>
+              <small>{window.start_seconds.toFixed(0)}s</small>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="caption">Per-second levels were not stored for this earlier analysis.</p>
+      )}
       <h4>Relative spectral energy</h4>
       <p className="caption">
         Phone sample; not calibrated sound pressure or hearing level.
@@ -251,7 +329,7 @@ export function AcousticResult({ analysis }: { analysis: Analysis }) {
         role="img"
         aria-label="Relative frequency-band energy in the recording"
       >
-        {analysis.bands.map((b) => (
+        {(analysis.bands || []).map((b) => (
           <div key={b.low_hz} className="band">
             <span className="band-value">
               {(b.relative_energy * 100).toFixed(1)}%
@@ -269,37 +347,97 @@ export function AcousticResult({ analysis }: { analysis: Analysis }) {
         ))}
       </div>
       {analysis.quality_flags?.length > 0 && (
-        <div className="notice">
-          Quality notes:{" "}
-          {analysis.quality_flags.join(", ").replaceAll("_", " ")}
-        </div>
+        <ul className="notice acoustic-quality-notes">
+          {analysis.quality_flags.map((flag) => (
+            <li key={flag}>{qualityFlagLabel(flag)}</li>
+          ))}
+        </ul>
       )}
-      <div className="model-results">
+      <div className="model-results acoustic-model-grid">
         <div>
-          <h4>Estimated speech activity</h4>
+          <h4>Silero speech estimate</h4>
           <p>
-            {analysis.speech_activity.status === "ready" &&
-            typeof analysis.speech_activity.fraction === "number"
-              ? `${(analysis.speech_activity.fraction * 100).toFixed(0)}% of the sample`
-              : analysis.speech_activity.status.replaceAll("_", " ")}
+            {speech.status === "ready" && typeof speech.fraction === "number"
+              ? `${(speech.fraction * 100).toFixed(0)}% of ${speech.aggregation === "valid-duration-weighted" ? "analysed duration" : "frames"} at or above ${(
+                  speech.threshold ?? 0.5
+                ).toFixed(2)}`
+              : modelStatus(speech.status)}
           </p>
           <span className="caption">
-            Silero VAD estimate, not a transcript.
+            {typeof speech.mean_probability === "number"
+              ? `${speech.aggregation === "valid-duration-weighted" ? "Duration-weighted mean" : "Mean frame"} score ${speech.mean_probability.toFixed(3)}. `
+              : ""}
+            Speech detection estimate, not a transcript or intelligibility measure.
           </span>
         </div>
         <div>
-          <h4>Estimated acoustic categories</h4>
-          <p>
-            {analysis.acoustic_categories.categories
-              ?.map((c) => `${c.label} (${(c.score * 100).toFixed(0)}%)`)
-              .join(" · ") ||
-              analysis.acoustic_categories.status.replaceAll("_", " ")}
-          </p>
+          <h4>YAMNet audio event scores</h4>
+          {categories.categories?.length ? (
+            <div className="acoustic-category-list">
+              {categories.categories.map((category) => (
+                <div className="acoustic-category-row" key={category.label}>
+                  <span>{category.label}</span>
+                  <span className="acoustic-score-track" aria-hidden="true">
+                    <span
+                      className="acoustic-score-fill"
+                      style={{ width: `${Math.max(0, Math.min(100, category.score * 100))}%` }}
+                    />
+                  </span>
+                  <strong>{category.score.toFixed(3)}</strong>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p>{modelStatus(categories.status)}</p>
+          )}
           <span className="caption">
-            YAMNet model scores, not certain identifications.
+            Scores are mean model outputs across frames, not probabilities that a sound
+            was present. A “Silence” label does not establish that the room was quiet.
           </span>
         </div>
       </div>
+      <details className="acoustic-model-windows">
+        <summary>Temporal model detail</summary>
+        {speech.windows?.length ? (
+          <section>
+            <h4>Speech estimate by second</h4>
+            <div className="acoustic-window-grid">
+              {speech.windows.map((window) => (
+                <div className="acoustic-model-window" key={window.start_seconds}>
+                  <small>{window.start_seconds.toFixed(1)}–{window.end_seconds.toFixed(1)}s</small>
+                  <strong>{(window.active_fraction * 100).toFixed(0)}% above threshold</strong>
+                  <span>mean score {window.mean_probability.toFixed(3)}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <p className="caption">Speech timing was not stored for this earlier analysis.</p>
+        )}
+        {categories.windows?.length ? (
+          <section>
+            <h4>Top YAMNet label by model frame</h4>
+            <div className="acoustic-window-grid">
+              {categories.windows.map((window) => {
+                const top = window.categories[0];
+                return (
+                  <div className="acoustic-model-window" key={window.start_seconds}>
+                    <small>{window.start_seconds.toFixed(2)}–{window.end_seconds.toFixed(2)}s</small>
+                    <strong>{top?.label || "No label stored"}</strong>
+                    {top && <span>score {top.score.toFixed(3)}</span>}
+                  </div>
+                );
+              })}
+            </div>
+            <p className="caption">
+              Frames overlap. Each label is the highest model score in that frame and is
+              not a certain identification.
+            </p>
+          </section>
+        ) : (
+          <p className="caption">YAMNet frame detail was not stored for this earlier analysis.</p>
+        )}
+      </details>
     </div>
   );
 }

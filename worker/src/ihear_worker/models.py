@@ -11,6 +11,9 @@ import numpy as np
 
 class SileroVad:
     VERSION = "6.2.1"
+    SAMPLE_RATE = 16_000
+    FRAME_SAMPLES = 512
+    FRAME_SECONDS = FRAME_SAMPLES / SAMPLE_RATE
 
     def __init__(self, model_path: Path):
         import onnxruntime as ort
@@ -26,10 +29,11 @@ class SileroVad:
         state = np.zeros((2, 1, 128), dtype=np.float32)
         context = np.zeros((1, 64), dtype=np.float32)
         probabilities: list[float] = []
-        remainder = (-waveform_16khz.size) % 512
+        valid_sample_count = waveform_16khz.size
+        remainder = (-valid_sample_count) % self.FRAME_SAMPLES
         waveform = np.pad(waveform_16khz, (0, remainder)) if remainder else waveform_16khz
-        for offset in range(0, waveform.size, 512):
-            frame = waveform[offset : offset + 512][None, :]
+        for offset in range(0, waveform.size, self.FRAME_SAMPLES):
+            frame = waveform[offset : offset + self.FRAME_SAMPLES][None, :]
             model_input = np.concatenate((context, frame), axis=1).astype(np.float32, copy=False)
             output, state = self._session.run(
                 None,
@@ -37,20 +41,60 @@ class SileroVad:
             )
             probabilities.append(float(np.asarray(output).reshape(-1)[0]))
             context = model_input[:, -64:]
-        active = np.asarray(probabilities) >= 0.5
+        probability_values = np.asarray(probabilities, dtype=np.float64)
+        active = probability_values >= 0.5
+        frame_starts = np.arange(probability_values.size) * self.FRAME_SAMPLES
+        valid_frame_samples = np.minimum(
+            self.FRAME_SAMPLES,
+            np.maximum(0, valid_sample_count - frame_starts),
+        ).astype(np.float64)
+        total_valid_samples = float(np.sum(valid_frame_samples))
+        duration_seconds = valid_sample_count / self.SAMPLE_RATE
+        windows: list[dict[str, float]] = []
+        for second in range(int(np.ceil(duration_seconds))):
+            window_start = second * self.SAMPLE_RATE
+            window_end = min(valid_sample_count, (second + 1) * self.SAMPLE_RATE)
+            frame_ends = np.minimum(frame_starts + self.FRAME_SAMPLES, valid_sample_count)
+            overlaps = np.maximum(
+                0,
+                np.minimum(frame_ends, window_end) - np.maximum(frame_starts, window_start),
+            ).astype(np.float64)
+            overlap_total = float(np.sum(overlaps))
+            if overlap_total <= 0:
+                continue
+            windows.append({
+                "start_seconds": round(float(second), 3),
+                "end_seconds": round(min(float(second + 1), duration_seconds), 3),
+                "active_fraction": round(float(np.sum(overlaps * active) / overlap_total), 6),
+                "mean_probability": round(
+                    float(np.sum(overlaps * probability_values) / overlap_total), 6
+                ),
+            })
         return {
             "status": "ready",
-            "fraction": round(float(np.mean(active)) if active.size else 0.0, 6),
-            "mean_probability": round(float(np.mean(probabilities)) if probabilities else 0.0, 6),
+            "fraction": round(
+                float(np.sum(valid_frame_samples * active) / total_valid_samples)
+                if total_valid_samples else 0.0,
+                6,
+            ),
+            "mean_probability": round(
+                float(np.sum(valid_frame_samples * probability_values) / total_valid_samples)
+                if total_valid_samples else 0.0,
+                6,
+            ),
             "threshold": 0.5,
             "model": "silero-vad",
             "version": self.VERSION,
-            "sample_rate": 16000,
+            "sample_rate": self.SAMPLE_RATE,
+            "aggregation": "valid-duration-weighted",
+            "windows": windows,
         }
 
 
 class Yamnet:
     VERSION = "1"
+    PATCH_WINDOW_SECONDS = 0.96
+    PATCH_HOP_SECONDS = 0.48
 
     def __init__(self, model_dir: Path):
         os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
@@ -64,8 +108,24 @@ class Yamnet:
 
     def classify(self, waveform_16khz: np.ndarray, limit: int = 5) -> dict[str, Any]:
         scores, _embeddings, _spectrogram = self._model(waveform_16khz)
+        frame_scores = np.asarray(scores)
         mean_scores = np.asarray(self._tf.reduce_mean(scores, axis=0))
         indices = np.argsort(mean_scores)[::-1][:limit]
+        duration_seconds = waveform_16khz.size / 16_000
+        windows = []
+        for frame_index, values in enumerate(frame_scores):
+            start = frame_index * self.PATCH_HOP_SECONDS
+            if start >= duration_seconds:
+                break
+            frame_indices = np.argsort(values)[::-1][:3]
+            windows.append({
+                "start_seconds": round(start, 3),
+                "end_seconds": round(min(duration_seconds, start + self.PATCH_WINDOW_SECONDS), 3),
+                "categories": [
+                    {"label": self._labels[int(index)], "score": round(float(values[index]), 6)}
+                    for index in frame_indices
+                ],
+            })
         return {
             "status": "ready",
             "categories": [
@@ -75,6 +135,10 @@ class Yamnet:
             "model": "YAMNet",
             "version": self.VERSION,
             "sample_rate": 16000,
+            "aggregation": "mean_across_model_frames",
+            "frame_window_seconds": self.PATCH_WINDOW_SECONDS,
+            "frame_hop_seconds": self.PATCH_HOP_SECONDS,
+            "windows": windows,
         }
 
 

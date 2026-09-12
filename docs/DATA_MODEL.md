@@ -68,6 +68,25 @@ covers kind, difficulty, environment, and the capture source label.
 
 The worker persists deterministic DSP here before any interpretation attempt. A trigger increments the patient's `report_revision` when a materially new analysis is inserted or changed.
 
+The additive `acoustic-detail-v1` feature schema keeps pipeline version 1 and needs
+no SQL migration. New results include `level_timeline` with one-second native-PCM
+RMS, peak and clipping values; Silero `windows` with duration-weighted threshold
+activity and mean score; and overlapping YAMNet `windows` with top label scores.
+Silero reports `aggregation: valid-duration-weighted`: partial 512-sample model
+frames contribute only their valid sample duration, split by overlap at second
+boundaries. Padding duration is excluded; the padded frame's score remains a
+model estimate. YAMNet declares its 0.96-second patch window and 0.48-second hop;
+scores are model outputs, not calibrated presence probabilities. Analysis
+provenance records the feature schema and Silero aggregation.
+
+Earlier stored JSON remains valid and is not rewritten or fabricated from absent
+raw audio. Missing time detail is explicit. Both legacy `very_quiet` and the new
+`weak_digital_signal` flag are presented as weak digital recording level, never
+room quietness. Patient-reported context is displayed separately from measured
+recording evidence. New PDFs use the corrected quality wording; existing cached
+PDF bytes remain historical and unchanged.
+
+
 ### `ihear.interpretations`
 
 `id uuid primary key`, `workspace_id uuid not null`, `patient_id uuid not null`, `event_id uuid not null`, `analysis_id uuid not null`, `pipeline_version integer`, `model text`, `prompt_version text`, `status text` (`held_ambiguity`, `held_budget`, `ready`, `failed`, `unavailable`, `skipped`), `result jsonb null`, `provenance jsonb`, `error text null`, `api_usage_id uuid null`, `created_at timestamptz`, `updated_at timestamptz`, unique `(analysis_id, model, prompt_version)`.

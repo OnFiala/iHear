@@ -24,6 +24,33 @@ selectors after the UI reshaping; these were corrected without weakening behavio
 assertions. The final date/pagination refinements also passed narrow verification: two browser
 scenarios, timezone parser regression cases and a three-moment pagination fixture.
 
+## Patient access and acoustic detail update — candidate, 2026-09-12
+
+The owner requested Home Screen access, remembered microphone opt-in, richer
+clinician recording evidence and consistent typography/forms. The reviewed
+candidate implements these on the existing private deployment, with API use off.
+The newest clinician moment is expanded and presents measured levels, sample
+properties, frequency bands, model scores and available time detail. It separates
+patient-reported context from model estimates and no longer labels a weak digital
+recording as a quiet room. Earlier results remain readable without invented timing.
+Patient Home Screen guidance is visible and dismissible. Actual browser permission
+remains authoritative; explicit Stop clears the remembered opt-in. Native install
+and physical iOS permission/lock behavior have not been verified.
+
+Local production browser verification passed all 12 scenarios in one 1.1-minute
+run, including fake-device PCM, real DSP/models, offline queue recovery, QR
+pairing/revocation, PDF, microphone reload, simulated permission changes and mobile
+layout/accessibility. An earlier attempt could not reach the test server because
+its sandboxed listener was denied; it executed no application workflow. Thirty
+TypeScript/unit checks pass. The final duration-weighting repair passed focused
+1.0/1.5-second model regressions and a real pinned-model probe; the complete worker
+suite passes 48 checks with one network-artifact probe skipped. The final weighting/text refinement then passed all eight linked browser
+scenarios in 50.5 seconds, including its aggregation identity and expanded
+clinician evidence at 390 px with automated WCAG checks. Historical cached PDF bytes/text remain unchanged;
+new generation uses the corrected quality wording.
+
+Deployed identity will be recorded after activation.
+
 ## Owner-only custom domain — active, 2026-09-12
 
 The owner approved `ihear.ofops.co` with access restricted to the owner and a

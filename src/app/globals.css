@@ -14,6 +14,9 @@
   --subtle: #f6f8fb;
   --danger: #a52a36;
   --radius: 8px;
+  --text-small: 0.875rem;
+  --text-body: 1rem;
+  --text-label: 0.9375rem;
 }
 * { box-sizing: border-box; }
 html { scroll-padding-top: 24px; }
@@ -31,7 +34,7 @@ h1, h2, h3 {
   font-family: "Manrope Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-weight: 700;
   line-height: 1.2;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.025em;
 }
 h1 { font-size: clamp(32px, 3.6vw, 48px); margin-bottom: 12px; }
 h2 { font-size: 25px; margin-bottom: 16px; }
@@ -39,7 +42,7 @@ h3 { font-size: 20px; margin-bottom: 12px; }
 h4 { font-size: 16px; margin-bottom: 8px; }
 p { color: var(--muted); }
 a { color: inherit; text-decoration: none; }
-button, input, select, textarea { font: inherit; }
+button, input, select, textarea { font: inherit; letter-spacing: normal; text-transform: none; }
 button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 button { color: inherit; cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: 0.58; }
@@ -58,7 +61,12 @@ input, select, textarea {
   color: var(--ink);
   border-radius: var(--radius);
   padding: 11px 13px;
-  min-height: 46px;
+  min-height: 48px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: var(--text-body);
+  font-weight: 400;
+  line-height: 1.5;
 }
 input::placeholder, textarea::placeholder { color: #66738a; opacity: 1; }
 input[type="checkbox"], input[type="radio"] {
@@ -68,11 +76,15 @@ input[type="checkbox"], input[type="radio"] {
   accent-color: var(--accent);
   flex-shrink: 0;
 }
-label { display: flex; flex-direction: column; gap: 7px; font-size: 15px; font-weight: 500; }
+label { display: flex; flex-direction: column; gap: 8px; min-width: 0; font-size: var(--text-label); font-weight: 500; line-height: 1.5; }
+label > .caption { font-weight: 400; margin: 0; }
+input[type="date"] { appearance: none; -webkit-appearance: none; min-height: 48px; }
+input[type="date"]::-webkit-date-and-time-value { text-align: left; }
+select { padding-right: 30px; text-overflow: ellipsis; }
 fieldset { border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; min-width: 0; }
 legend { padding: 0 7px; font-weight: 650; }
 fieldset label + label { margin-top: 12px; }
-textarea { resize: vertical; }
+textarea { resize: vertical; min-height: 104px; }
 summary { cursor: pointer; font-weight: 500; padding: 13px 0; }
 pre { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--subtle); padding: 14px; border-radius: var(--radius); max-height: 280px; overflow: auto; }
 .page-width { width: calc(100% - 96px); max-width: 1280px; margin-inline: auto; }
@@ -90,7 +102,8 @@ pre { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; backgroun
   color: #fff;
   font-size: 15px;
   font-weight: 600;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
 }
 .button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .button.secondary { background: #fff; color: var(--accent); border-color: #adbee6; }
@@ -132,9 +145,9 @@ pre { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; backgroun
 .search-box > svg { position: absolute; left: 13px; color: var(--muted); pointer-events: none; }
 .search-box input { padding-left: 42px; }
 .filter-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.filter-row select { width: auto; max-width: 230px; font-size: 13px; }
+.filter-row select { width: auto; max-width: 230px; font-size: var(--text-body); }
 .date-filter { min-width: 145px; }
-.date-filter input { font-size: 13px; }
+.date-filter input { font-size: var(--text-body); }
 .list-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .clinic-list-heading { font-size: 14px; color: var(--muted); }
 .clinic-patient-list { display: flex; flex-direction: column; border-top: 1px solid var(--border); }
@@ -158,7 +171,10 @@ pre { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; backgroun
 .patient-form { display: grid; gap: 24px; }
 .form-section { padding: 28px; }
 .form-section h2 { font-size: 21px; }
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.form-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 24px; }
+.form-grid > *, .form-section { min-width: 0; }
+.clinic-form label > input, .clinic-form label > select { height: 48px; }
+.clinic-form input, .clinic-form select, .clinic-form textarea { font-size: var(--text-body); }
 .form-grid .wide { grid-column: 1 / -1; }
 .optional { color: var(--muted); font-weight: 400; font-size: 13px; }
 .audiogram-form-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 32px; align-items: center; }
@@ -166,7 +182,7 @@ pre { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; backgroun
 .audiogram-inputs table { width: 100%; border-collapse: collapse; }
 .audiogram-inputs th { color: var(--muted); font-size: 12px; font-weight: 500; }
 .audiogram-inputs td, .audiogram-inputs th { padding: 6px 3px; text-align: center; }
-.audiogram-inputs td input { width: 54px; min-height: 42px; padding: 8px 3px; text-align: center; border-radius: 5px; font-size: 14px; }
+.audiogram-inputs td input { width: 100%; min-width: 72px; min-height: 44px; padding: 8px; text-align: center; border-radius: 5px; font-size: var(--text-body); font-variant-numeric: tabular-nums; }
 .chart { margin: 0; min-width: 0; }
 .chart svg { display: block; width: 100%; max-height: 330px; }
 .axis-label { fill: var(--muted); font-size: 10px; }
@@ -235,7 +251,7 @@ pre { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; backgroun
 .patient-header nav { gap: 10px; }
 .patient-about-button { display: grid; place-items: center; background: transparent; border: 0; border-radius: 7px; min-width: 44px; min-height: 44px; color: var(--muted); }
 .patient-main { width: calc(100% - 40px); max-width: 390px; margin: 32px auto 0; padding-bottom: 40px; }
-.patient-main h1 { font-size: 34px; letter-spacing: -0.05em; }
+.patient-main h1 { font-size: 34px; letter-spacing: -0.025em; }
 .patient-main h2 { font-size: 24px; }
 .patient-main p { font-size: 16px; }
 .patient-main .caption { font-size: 13px; }
@@ -377,6 +393,69 @@ pre { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; backgroun
   .patient-home { min-height: calc(100dvh - 102px); }
 }
 
+/* Shared type scale and evidence panels. Values always describe the recording. */
+.clinic-form h2, .acoustic-heading h3 { font-size: 22px; line-height: 1.3; }
+.clinic-form .optional { font-size: inherit; font-weight: 400; }
+.clinic-acoustic-details { margin-top: 24px; }
+.acoustic-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.acoustic-heading h3, .acoustic-heading p { margin-bottom: 8px; }
+.acoustic-metrics { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 20px 0; }
+.acoustic-metrics > div, .acoustic-metrics > div:first-child { padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--subtle); min-width: 0; }
+.acoustic-metrics strong { font-size: 24px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.acoustic-metrics span { font-size: var(--text-small); }
+.acoustic-section-heading { margin: 28px 0 8px; font-size: 18px; line-height: 1.4; }
+.acoustic-evidence-note { padding: 14px 16px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 var(--radius) var(--radius) 0; font-size: var(--text-small); line-height: 1.6; }
+.acoustic-level-timeline { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px; margin: 20px 0; }
+.acoustic-level-window { display: flex; flex-direction: column; gap: 7px; min-width: 0; text-align: center; }
+.acoustic-level-track { position: relative; height: 100px; display: flex; align-items: flex-end; background: var(--subtle); border-bottom: 1px solid var(--border); }
+.acoustic-level-fill { display: block; width: 100%; background: #527bd7; max-height: 100%; }
+.acoustic-level-label { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.acoustic-model-grid { gap: 28px; align-items: start; }
+.acoustic-category-list { display: grid; gap: 12px; margin: 18px 0; padding: 0; list-style: none; }
+.acoustic-category-row { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(50px, 1fr) 4ch; align-items: baseline; column-gap: 12px; row-gap: 5px; font-size: var(--text-small); }
+.acoustic-category-row > * { min-width: 0; }
+.acoustic-category-row strong { font-weight: 600; font-variant-numeric: tabular-nums; }
+.acoustic-score-track { height: 7px; border-radius: 4px; overflow: hidden; background: var(--subtle); }
+.acoustic-score-fill { display: block; height: 100%; background: var(--accent); }
+.acoustic-model-windows { display: grid; gap: 10px; margin-top: 16px; }
+.acoustic-model-window { padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); font-size: var(--text-small); }
+.acoustic-model-window p { margin-bottom: 0; }
+.acoustic-window-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.acoustic-model-window > small, .acoustic-model-window > strong, .acoustic-model-window > span { display: block; }
+.acoustic-model-window > small { color: var(--muted); margin-bottom: 5px; }
+.acoustic-quality-notes { display: block; padding-left: 32px; }
+.acoustic-quality-notes li + li { margin-top: 6px; }
+.acoustic-level-value { font-size: 12px; font-variant-numeric: tabular-nums; }
+.acoustic-level-window > small { font-size: 12px; color: var(--muted); }
+.clinic-reported-context { border-left: 3px solid #e5bf60; padding-left: 16px; margin-block: 20px; }
+.clinic-reported-context h4 { font-size: 16px; margin-bottom: 10px; }
+.recording-evidence { padding: 20px; background: var(--subtle); border: 1px solid var(--border); border-radius: var(--radius); margin: 20px 0; }
+.recording-evidence h4 { margin-bottom: 16px; }
+.recording-evidence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.recording-evidence-grid > * { min-width: 0; overflow-wrap: anywhere; }
+.recording-evidence-grid > span > small { display: block; color: var(--muted); font-size: var(--text-small); margin-bottom: 4px; }
+.recording-evidence-grid dt { color: var(--muted); font-size: var(--text-small); margin-bottom: 4px; }
+.recording-evidence-grid dd { margin: 0; font-size: var(--text-small); }
+.patient-install { margin: 22px 0; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--subtle); }
+.patient-install-copy > strong { display: block; font-size: 16px; margin-bottom: 6px; }
+.patient-install-copy h2, .patient-install-copy h3 { font-size: 17px; line-height: 1.4; margin-bottom: 6px; }
+.patient-install-copy p, .patient-main .patient-install p { font-size: var(--text-small); margin-bottom: 10px; line-height: 1.55; }
+.patient-install-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.patient-install-actions .button { min-height: 44px; font-size: var(--text-small); padding: 10px 14px; }
+.patient-install-steps { padding-left: 22px; margin: 14px 0 0; color: var(--muted); font-size: var(--text-small); }
+.patient-install-steps li + li { margin-top: 9px; }
+.mic-resume { color: var(--muted); }
+@media (max-width: 760px) {
+  .acoustic-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .acoustic-metrics > div, .acoustic-metrics > div:first-child { padding: 12px; }
+  .acoustic-metrics strong { font-size: 22px; }
+  .acoustic-level-timeline { gap: 4px; }
+  .acoustic-level-label, .acoustic-level-value, .acoustic-level-window > small { font-size: 10px; }
+  .recording-evidence { padding: 16px; }
+  .recording-evidence-grid { grid-template-columns: 1fr; gap: 12px; }
+  .acoustic-model-grid { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 1100px) {
   .page-width, .site-header, .site-footer { width: calc(100% - 56px); }
   .patient-header { width: calc(100% - 40px); }
@@ -427,7 +506,7 @@ pre { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; backgroun
   .form-grid, .patient-overview { grid-template-columns: 1fr; }
   .form-footer { flex-direction: column; align-items: stretch; }
   .form-footer .button { width: 100%; }
-  .audiogram-inputs td input { width: 42px; font-size: 13px; }
+  .audiogram-inputs td input { width: 100%; min-width: 64px; font-size: var(--text-body); }
   .audiogram-inputs td, .audiogram-inputs th { padding: 4px 1px; }
   .overview-profile, .pairing-card { padding: 20px; }
   .card-heading { flex-wrap: wrap; }
