@@ -126,6 +126,8 @@ The dedicated installer overrides the collector's small portable default with
 every discovered iHear Supabase container plus the worker, using an exact name
 allowlist. Other projects' containers are excluded. Docker utilization is collected
 in one bounded batch per sample.
+Network rates use observed physical interfaces with a sysfs hardware device;
+Docker, veth, loopback and Tailscale interfaces are excluded to avoid double counting.
 
 Browser visitor counts are 30-day random-cookie counts, not identified people.
 Cookie deletion, shared browsers and multiple devices affect them. Request rows

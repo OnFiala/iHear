@@ -38,6 +38,9 @@ def main():
         raise SystemExit("The current tailnet owner login is invalid.")
     container_names = run("docker", "ps", "-a", "--format", "{{.Names}}").splitlines()
     monitored = sorted({"ihear-worker-1", *(name for name in container_names if re.fullmatch(r"supabase_[a-z0-9_]+_iHear", name))})
+    interfaces = sorted(path.name for path in Path("/sys/class/net").iterdir() if (path / "device").exists() and re.fullmatch(r"[A-Za-z0-9_.:-]+", path.name))
+    if not interfaces:
+        raise SystemExit("No physical network interface found; configure an explicit reviewed interface list.")
     try:
         pwd.getpwnam("ihear-monitor")
     except KeyError:
@@ -72,7 +75,7 @@ def main():
     env = config / "monitor.env"
     fd = os.open(env, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as stream:
-        stream.write(f"IHEAR_MONITOR_ALLOWED_LOGIN={login}\nIHEAR_MONITOR_DB=/var/lib/ihear-monitor/metrics.sqlite\nIHEAR_ACCESS_LOG=/var/log/ihear/access.jsonl\nIHEAR_DB_CONTAINER=supabase_db_iHear\nIHEAR_MONITOR_CONTAINERS={','.join(monitored)}\n")
+        stream.write(f"IHEAR_MONITOR_ALLOWED_LOGIN={login}\nIHEAR_MONITOR_DB=/var/lib/ihear-monitor/metrics.sqlite\nIHEAR_ACCESS_LOG=/var/log/ihear/access.jsonl\nIHEAR_DB_CONTAINER=supabase_db_iHear\nIHEAR_MONITOR_CONTAINERS={','.join(monitored)}\nIHEAR_MONITOR_NETWORK_INTERFACES={','.join(interfaces)}\n")
     env.chmod(0o600)
     run("nginx", "-t")
     run("systemctl", "daemon-reload")

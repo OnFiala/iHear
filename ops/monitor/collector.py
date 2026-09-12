@@ -29,6 +29,7 @@ DEFAULT_UNITS = (
     "ihear-monitor-dashboard.service", "nginx.service", "docker.service", "tailscaled.service",
 )
 SAFE_NAME = re.compile(r"^[A-Za-z0-9_.@-]{1,128}$")
+SAFE_INTERFACE = re.compile(r"^[A-Za-z0-9_.:-]{1,64}$")
 HEX32 = re.compile(r"^[0-9a-f]{32}$")
 METHODS = {"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
 ROUTE_CLASSES = {
@@ -91,7 +92,9 @@ def _parse_mem_bytes(value: str) -> int | None:
     return int(float(match.group(1)) * scale) if scale else None
 
 
-def collect_host(store: MonitorStore) -> dict[str, Any]:
+def collect_host(
+    store: MonitorStore, network_interfaces: tuple[str, ...] | None = None
+) -> dict[str, Any]:
     result: dict[str, Any] = {
         "cpu_percent": None, "ram_used_bytes": None, "ram_total_bytes": None,
         "disk_used_bytes": None, "disk_total_bytes": None, "temperature_c": None,
@@ -138,33 +141,51 @@ def collect_host(store: MonitorStore) -> dict[str, Any]:
             result["swap_total_bytes"] = swap_total
             result["swap_used_bytes"] = max(0, swap_total - swap_free)
 
+    selected_interfaces = set(network_interfaces) if network_interfaces is not None else None
+    network_selection_valid = (
+        selected_interfaces is None
+        or bool(selected_interfaces)
+        and len(selected_interfaces) == len(network_interfaces)
+        and all(SAFE_INTERFACE.fullmatch(name) for name in selected_interfaces)
+    )
+    network_complete = network_selection_valid
     network = _read_text("/proc/net/dev")
     if network:
         received = transmitted = 0
         valid_network = False
+        observed_interfaces: set[str] = set()
         for line in network.splitlines()[2:]:
             if ":" not in line:
                 continue
             interface, raw = line.split(":", 1)
+            interface = interface.strip()
             fields = raw.split()
-            if interface.strip() == "lo" or len(fields) < 16:
+            if interface == "lo" or len(fields) < 16:
+                continue
+            if selected_interfaces is not None and interface not in selected_interfaces:
                 continue
             try:
                 received += int(fields[0])
                 transmitted += int(fields[8])
                 valid_network = True
+                observed_interfaces.add(interface)
             except ValueError:
                 continue
-        if valid_network:
+        if selected_interfaces is not None and observed_interfaces != selected_interfaces:
+            network_complete = False
+            valid_network = False
+        if valid_network and network_selection_valid:
             timestamp = time.monotonic()
+            selection_key = "*" if selected_interfaces is None else ",".join(sorted(selected_interfaces))
+            state_key = f"network_bytes:{selection_key}"
             with store.connect() as connection:
                 previous = connection.execute(
-                    "SELECT state_value FROM collector_state WHERE state_key = 'network_bytes'"
+                    "SELECT state_value FROM collector_state WHERE state_key = ?", (state_key,)
                 ).fetchone()
                 connection.execute(
-                    """INSERT INTO collector_state(state_key, state_value) VALUES('network_bytes', ?)
+                    """INSERT INTO collector_state(state_key, state_value) VALUES(?, ?)
                        ON CONFLICT(state_key) DO UPDATE SET state_value = excluded.state_value""",
-                    (f"{received}:{transmitted}:{timestamp}",),
+                    (state_key, f"{received}:{transmitted}:{timestamp}"),
                 )
             if previous:
                 old_received, old_transmitted, old_timestamp = previous[0].split(":")
@@ -223,7 +244,7 @@ def collect_host(store: MonitorStore) -> dict[str, Any]:
                 result["ac_online"] = int(raw)
 
     essentials = ("ram_total_bytes", "disk_total_bytes", "uptime_seconds")
-    if any(result[key] is None for key in essentials):
+    if any(result[key] is None for key in essentials) or not network_complete:
         result["host_status"] = "partial"
     return result
 
@@ -486,7 +507,10 @@ def collect_once(args: argparse.Namespace) -> None:
     access_status = AccessLogIngestor(
         store, args.access_log, max_lines=args.max_log_lines, max_bytes=args.max_log_bytes
     ).ingest()
-    host = collect_host(store)
+    host = collect_host(
+        store,
+        tuple(args.network_interfaces) if args.network_interfaces is not None else None,
+    )
     docker_status, containers = collect_containers(tuple(args.containers))
     units = collect_units(tuple(args.units))
     database_status, app_metrics = collect_database(args.database_container)
@@ -502,12 +526,18 @@ def collect_once(args: argparse.Namespace) -> None:
 
 def parser() -> argparse.ArgumentParser:
     command = argparse.ArgumentParser(description="Collect one bounded iHear operations sample.")
+    network_env = os.environ.get("IHEAR_MONITOR_NETWORK_INTERFACES", "").strip()
     command.add_argument("--db", default=os.environ.get("IHEAR_MONITOR_DB", DEFAULT_DB))
     command.add_argument("--access-log", default=os.environ.get("IHEAR_ACCESS_LOG", DEFAULT_ACCESS_LOG))
     command.add_argument("--retention-days", type=int, default=30)
     command.add_argument("--max-log-lines", type=int, default=2000)
     command.add_argument("--max-log-bytes", type=int, default=2_000_000)
     command.add_argument("--database-container", default=os.environ.get("IHEAR_DB_CONTAINER", "supabase_db_iHear"))
+    command.add_argument(
+        "--network-interfaces", nargs="*",
+        default=network_env.split(",") if network_env else None,
+        help="Exact physical interface allowlist; default observes all non-loopback interfaces.",
+    )
     command.add_argument("--containers", nargs="*", default=os.environ.get("IHEAR_MONITOR_CONTAINERS", ",".join(DEFAULT_CONTAINERS)).split(","))
     command.add_argument("--units", nargs="*", default=os.environ.get("IHEAR_MONITOR_UNITS", ",".join(DEFAULT_UNITS)).split(","))
     return command

@@ -187,7 +187,10 @@ class MonitorTest(unittest.TestCase):
             if value == "/proc/net/dev":
                 calls["network"] += 1
                 received, transmitted = ((1000, 2000) if calls["network"] == 1 else (3000, 5000))
-                return f"head\nhead\neth0: {received} 0 0 0 0 0 0 0 {transmitted} 0 0 0 0 0 0 0\n"
+                return (
+                    f"head\nhead\neth0: {received} 0 0 0 0 0 0 0 {transmitted} 0 0 0 0 0 0 0\n"
+                    f"veth0: {received * 100} 0 0 0 0 0 0 0 {transmitted * 100} 0 0 0 0 0 0 0\n"
+                )
             if value == "/proc/uptime":
                 return "7200.0 1000.0"
             if value.endswith("/lid/LID/state"):
@@ -213,8 +216,9 @@ class MonitorTest(unittest.TestCase):
              patch("collector.glob.glob", side_effect=fake_glob), \
              patch("collector.time.monotonic", side_effect=[100.0, 102.0]), \
              patch("collector.shutil.disk_usage", return_value=type("Usage", (), {"total": 1000, "used": 400})()):
-            collect_host(self.store)
-            result = collect_host(self.store)
+            collect_host(self.store, ("eth0",))
+            result = collect_host(self.store, ("eth0",))
+            missing = collect_host(self.store, ("eno1",))
         self.assertEqual(result["cpu_percent"], 50.0)
         self.assertEqual(result["ram_used_bytes"], 5_000_000 * 1024)
         self.assertEqual(result["swap_used_bytes"], 500_000 * 1024)
@@ -223,6 +227,9 @@ class MonitorTest(unittest.TestCase):
         self.assertEqual(result["battery_percent"], 84.0)
         self.assertEqual(result["ac_online"], 1)
         self.assertEqual(result["lid_state"], "closed")
+        self.assertIsNone(missing["network_rx_bytes_per_second"])
+        self.assertIsNone(missing["network_tx_bytes_per_second"])
+        self.assertEqual(missing["host_status"], "partial")
 
     def test_container_stats_are_batched_once_and_matched_by_name(self) -> None:
         calls: list[tuple[list[str], float]] = []

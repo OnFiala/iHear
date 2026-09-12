@@ -26,6 +26,7 @@ IHEAR_MONITOR_ALLOWED_LOGIN=exact-login-from-current-tailnet-owner
 IHEAR_MONITOR_DB=/var/lib/ihear-monitor/metrics.sqlite
 IHEAR_ACCESS_LOG=/var/log/ihear/access.jsonl
 IHEAR_DB_CONTAINER=supabase_db_iHear
+IHEAR_MONITOR_NETWORK_INTERFACES=eno1,wlp2s0
 ```
 
 After the owner login is verified from current tailnet state, the intended private ingress is:
@@ -39,7 +40,9 @@ Verify the accepted Serve configuration with `tailscale serve status`; do not in
 
 ## Availability semantics
 
-Host CPU, memory, swap, disk, network rate, uptime, thermal, battery, AC, and lid signals are read from `/proc` and `/sys` when Linux exposes them. Docker, database, systemd, and access-log probes report `available`, `partial`, `unavailable`, `invalid_response`, or `gap`. Systemd details are bounded state/result enums; raw journal messages are deliberately excluded because they can contain URLs, identifiers, and credentials. Missing measurements are SQLite `NULL` and display as **Unknown**, never zero. The dashboard marks a sample stale after 90 seconds. History and sanitized request rows are retained for 30 days. Each collector run reads at most 2,000 log lines or 2 MB, and commits cursor movement with inserts so replay cannot double-count a line.
+Host CPU, memory, swap, disk, network rate, uptime, thermal, battery, AC, and lid signals are read from `/proc` and `/sys` when Linux exposes them. By default, network rate sums every non-loopback interface and can double-count traffic crossing Docker bridges, virtual Ethernet pairs, or Tailscale. The dedicated host must set `IHEAR_MONITOR_NETWORK_INTERFACES` to the physical interfaces derived from `/sys/class/net/*/device`. When a configured interface is absent, both rates remain **Unknown** and host status becomes `partial`; the collector never substitutes zero or silently falls back to virtual interfaces. Changing the allowlist starts a separate rate baseline.
+
+Docker, database, systemd, and access-log probes report `available`, `partial`, `unavailable`, `invalid_response`, or `gap`. Systemd details are bounded state/result enums; raw journal messages are deliberately excluded because they can contain URLs, identifiers, and credentials. Missing measurements are SQLite `NULL` and display as **Unknown**, never zero. The dashboard marks a sample stale after 90 seconds. History and sanitized request rows are retained for 30 days. Each collector run reads at most 2,000 log lines or 2 MB, and commits cursor movement with inserts so replay cannot double-count a line.
 
 The database query returns aggregate event, job, and report status counts only. It selects no identifiers, names, notes, audio metadata, analysis contents, errors, credentials, or capability material.
 
