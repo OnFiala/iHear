@@ -17,6 +17,18 @@ type Reservation = {
   audioObjectPath: string;
 };
 
+export async function admitEventUploadRequest(
+  request: NextRequest,
+  workspaceId: string,
+  patientId: string,
+): Promise<void> {
+  await query("select ihear.admit_event_upload_request($1, $2, $3)", [
+    requestIpHash(request),
+    workspaceId,
+    patientId,
+  ]);
+}
+
 export async function acceptEvent(
   request: NextRequest,
   workspaceId: string,

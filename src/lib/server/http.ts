@@ -10,6 +10,23 @@ export class HttpError extends Error {
   }
 }
 
+export const MAX_JSON_BYTES = 65_536;
+
+function logClassification(error: unknown): "database" | "configuration" | "unexpected" {
+  if (error && typeof error === "object") {
+    const value = error as { code?: unknown; message?: unknown };
+    if (typeof value.code === "string" && /^[0-9A-Z]{5}$/.test(value.code))
+      return "database";
+    if (
+      typeof value.message === "string" &&
+      (value.message.endsWith(" is not configured.") ||
+        value.message.includes(" must be an integer"))
+    )
+      return "configuration";
+  }
+  return "unexpected";
+}
+
 export function errorResponse(error: unknown): NextResponse<{ error: string }> {
   if (error instanceof HttpError)
     return NextResponse.json(
@@ -25,7 +42,8 @@ export function errorResponse(error: unknown): NextResponse<{ error: string }> {
       );
     if (
       value.message === "rate_limit_exceeded" ||
-      value.message === "queue_capacity_exceeded"
+      value.message === "queue_capacity_exceeded" ||
+      value.message === "retained_capacity_exceeded"
     ) {
       return NextResponse.json(
         { error: "The service is busy. Please try again later." },
@@ -38,7 +56,12 @@ export function errorResponse(error: unknown): NextResponse<{ error: string }> {
         { status: 409 },
       );
   }
-  console.error("iHear API error", error);
+  console.error(
+    JSON.stringify({
+      event: "ihear_api_error",
+      classification: logClassification(error),
+    }),
+  );
   return NextResponse.json(
     { error: "The server could not complete the request." },
     { status: 500 },
@@ -47,8 +70,11 @@ export function errorResponse(error: unknown): NextResponse<{ error: string }> {
 
 export async function readJson(request: Request): Promise<unknown> {
   try {
-    return await request.json();
-  } catch {
+    const body = await readBoundedBody(request, MAX_JSON_BYTES);
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(body);
+    return JSON.parse(text);
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
     throw new HttpError(400, "The request body must be valid JSON.");
   }
 }

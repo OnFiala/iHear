@@ -35,9 +35,7 @@ export async function createPatient(
 ): Promise<Patient> {
   const rows = await query<Row>(
     `
-    insert into ihear.patients (workspace_id, display_name, audiogram, aids, follow_up_date, note, timezone)
-    values ($1, $2, $3, $4, $5, $6, $7)
-    returning *
+    select * from ihear.create_patient($1, $2, $3, $4, $5, $6, $7)
   `,
     [
       workspaceId,
@@ -79,9 +77,7 @@ export async function updatePatient(
 ): Promise<Patient> {
   const rows = await query<Row>(
     `
-    update ihear.patients set display_name = $3, audiogram = $4, aids = $5,
-      follow_up_date = $6, note = $7, timezone = $8
-    where id = $1 and workspace_id = $2 returning *
+    select * from ihear.update_patient_profile($2, $1, $3, $4, $5, $6, $7, $8)
   `,
     [
       patientId,

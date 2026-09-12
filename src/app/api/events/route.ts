@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePatient } from "@/lib/server/auth";
-import { acceptEvent } from "@/lib/server/events";
+import { acceptEvent, admitEventUploadRequest } from "@/lib/server/events";
 import { errorResponse, HttpError, readBoundedBody } from "@/lib/server/http";
 import { listEvents } from "@/lib/server/patients";
 import { requireSameOrigin } from "@/lib/server/security";
@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
   try {
     requireSameOrigin(request);
     const auth = await requirePatient(request);
+    await admitEventUploadRequest(request, auth.workspaceId, auth.patientId);
     const body = await readBoundedBody(request, MAX_MULTIPART_BYTES);
     const headers = new Headers(request.headers);
     headers.set("content-length", String(body.byteLength));

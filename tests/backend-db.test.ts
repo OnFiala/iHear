@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import pg from "pg";
 
 const DATABASE_URL =
@@ -477,5 +477,238 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
   } finally {
     await client.query("rollback");
     await client.end();
+  }
+});
+
+test("sandbox admission bounds retained growth, duplicate uploads, profile edits, rotations, and report revisions", async () => {
+  const client = new pg.Client({ connectionString: DATABASE_URL });
+  await client.connect();
+  await client.query("begin");
+  const hash = (value: string) => createHash("sha256").update(value).digest();
+  try {
+    const seed = randomUUID();
+    const workspace = await client.query<{ id: string }>(
+      "select ihear.create_workspace_with_capability($1, $2) as id",
+      [hash(`${seed}:ip`), hash(`${seed}:owner`)],
+    );
+    const workspaceId = workspace.rows[0].id;
+    const profile = {
+      audiogram: { frequencies: [500], left: [20], right: [25] },
+      aids: {
+        side: "bilateral",
+        left: { model: "Example", tier: "110" },
+        right: { model: "Example", tier: "110" },
+      },
+    };
+    const patient = await client.query<{ id: string }>(
+      `select id from ihear.create_patient($1, 'Admission Test', $2, $3, '2026-10-01', '', 'Europe/Prague')`,
+      [workspaceId, profile.audiogram, profile.aids],
+    );
+    const patientId = patient.rows[0].id;
+
+    await client.query(
+      "update ihear.sandbox_limits set max_workspaces = (select count(*) from ihear.workspaces) where singleton",
+    );
+    await client.query("savepoint workspace_ceiling");
+    await assert.rejects(
+      client.query("insert into ihear.workspaces default values"),
+      /retained_capacity_exceeded/,
+    );
+    await client.query("rollback to savepoint workspace_ceiling");
+    await client.query(
+      "update ihear.sandbox_limits set max_workspaces = 500 where singleton",
+    );
+
+    await client.query(
+      "update ihear.sandbox_limits set max_patients_workspace = 1 where singleton",
+    );
+    await client.query("savepoint patient_ceiling");
+    await assert.rejects(
+      client.query(
+        `select * from ihear.create_patient($1, 'Rejected', $2, $3, '2026-10-01', '', 'Europe/Prague')`,
+        [workspaceId, profile.audiogram, profile.aids],
+      ),
+      /retained_capacity_exceeded/,
+    );
+    await client.query("rollback to savepoint patient_ceiling");
+    await client.query(
+      "update ihear.sandbox_limits set max_patients_workspace = 100 where singleton",
+    );
+
+    await client.query("savepoint duplicate_upload_rate");
+    for (let index = 0; index < 60; index += 1)
+      await client.query(
+        "select ihear.admit_event_upload_request($1, $2, $3)",
+        [hash(`${seed}:upload-ip`), workspaceId, patientId],
+      );
+    await assert.rejects(
+      client.query("select ihear.admit_event_upload_request($1, $2, $3)", [
+        hash(`${seed}:upload-ip`),
+        workspaceId,
+        patientId,
+      ]),
+      /rate_limit_exceeded/,
+    );
+    await client.query("rollback to savepoint duplicate_upload_rate");
+
+    const reserve = async (eventId: string, suffix: string) =>
+      client.query(
+        `select ihear.reserve_event_upload(
+          $1, $2, $3, $4, 'understood', null, null, '2026-09-12T12:00:00Z', $5,
+          $6, $7, $8, 32044, 1, 1
+        )`,
+        [
+          eventId,
+          workspaceId,
+          patientId,
+          hash(`${seed}:event-ip`),
+          { sampleRate: 16000, sourceLabel: "Phone microphone" },
+          `${workspaceId}/${patientId}/${eventId}.wav`,
+          hash(`${seed}:audio:${suffix}`),
+          hash(`${seed}:fingerprint:${suffix}`),
+        ],
+      );
+    const firstEventId = randomUUID();
+    await reserve(firstEventId, "first");
+    await client.query(
+      "update ihear.sandbox_limits set max_active_jobs_global = 1 where singleton",
+    );
+    await client.query("savepoint active_slot_ceiling");
+    await assert.rejects(reserve(randomUUID(), "concurrent"), /queue_capacity_exceeded/);
+    await client.query("rollback to savepoint active_slot_ceiling");
+    await client.query(
+      "select ihear.finalize_event_upload($1, $2, $3, $4)",
+      [
+        firstEventId,
+        workspaceId,
+        patientId,
+        hash(`${seed}:fingerprint:first`),
+      ],
+    );
+    await client.query(
+      "update ihear.sandbox_limits set max_active_jobs_global = 200 where singleton",
+    );
+    await client.query(
+      "update ihear.sandbox_limits set max_events_workspace = 1 where singleton",
+    );
+    await client.query("savepoint event_ceiling");
+    await assert.rejects(reserve(randomUUID(), "second"), /retained_capacity_exceeded/);
+    await client.query("rollback to savepoint event_ceiling");
+    await client.query(
+      "update ihear.sandbox_limits set max_events_workspace = 5000 where singleton",
+    );
+
+    await client.query("savepoint profile_rate");
+    for (let index = 0; index < 30; index += 1)
+      await client.query(
+        `select * from ihear.update_patient_profile(
+          $1, $2, 'Admission Test', $3, $4, '2026-10-01', '', 'Europe/Prague'
+        )`,
+        [workspaceId, patientId, profile.audiogram, profile.aids],
+      );
+    await assert.rejects(
+      client.query(
+        `select * from ihear.update_patient_profile(
+          $1, $2, 'Admission Test', $3, $4, '2026-10-01', '', 'Europe/Prague'
+        )`,
+        [workspaceId, patientId, profile.audiogram, profile.aids],
+      ),
+      /rate_limit_exceeded/,
+    );
+    await client.query("rollback to savepoint profile_rate");
+
+    await client.query("savepoint pairing_rate");
+    for (let index = 0; index < 12; index += 1)
+      await client.query(
+        `insert into ihear.pairing_tokens(workspace_id, patient_id, token_hash, expires_at)
+         values($1, $2, $3, now() + interval '1 day')`,
+        [workspaceId, patientId, hash(`${seed}:pairing:${index}`)],
+      );
+    await assert.rejects(
+      client.query(
+        `insert into ihear.pairing_tokens(workspace_id, patient_id, token_hash, expires_at)
+         values($1, $2, $3, now() + interval '1 day')`,
+        [workspaceId, patientId, hash(`${seed}:pairing:rejected`)],
+      ),
+      /rate_limit_exceeded/,
+    );
+    await client.query("rollback to savepoint pairing_rate");
+
+    await client.query("savepoint report_revision_growth");
+    const firstReport = await client.query<{ value: { reportId: string } }>(
+      "select ihear.ensure_report_job($1, $2, 2) as value",
+      [workspaceId, patientId],
+    );
+    const cachedReport = await client.query<{ value: { reportId: string } }>(
+      "select ihear.ensure_report_job($1, $2, 2) as value",
+      [workspaceId, patientId],
+    );
+    assert.equal(cachedReport.rows[0].value.reportId, firstReport.rows[0].value.reportId);
+    await client.query("savepoint cached_report_saturated");
+    await client.query(
+      `update ihear.rate_limit_counters set request_count = 60
+       where scope = 'report_request_patient_hour'
+         and subject_hash = extensions.digest($1::text || ':' || $2::text, 'sha256')`,
+      [workspaceId, patientId],
+    );
+    await client.query(
+      `update ihear.rate_limit_counters set request_count = 6
+       where scope = 'report_growth_patient_hour'
+         and subject_hash = extensions.digest($1::text || ':' || $2::text, 'sha256')`,
+      [workspaceId, patientId],
+    );
+    const saturatedCached = await client.query<{ value: { reportId: string } }>(
+      "select ihear.ensure_report_job($1, $2, 2) as value",
+      [workspaceId, patientId],
+    );
+    assert.equal(saturatedCached.rows[0].value.reportId, firstReport.rows[0].value.reportId);
+    await client.query("rollback to savepoint cached_report_saturated");
+    for (let revision = 1; revision < 6; revision += 1) {
+      await client.query(
+        `select * from ihear.update_patient_profile(
+          $1, $2, 'Admission Test', $3, $4, '2026-10-01', $5, 'Europe/Prague'
+        )`,
+        [workspaceId, patientId, profile.audiogram, profile.aids, `revision-${revision}`],
+      );
+      await client.query("select ihear.ensure_report_job($1, $2, 2)", [
+        workspaceId,
+        patientId,
+      ]);
+    }
+    await client.query(
+      `select * from ihear.update_patient_profile(
+        $1, $2, 'Admission Test', $3, $4, '2026-10-01', 'revision-rejected', 'Europe/Prague'
+      )`,
+      [workspaceId, patientId, profile.audiogram, profile.aids],
+    );
+    await assert.rejects(
+      client.query("select ihear.ensure_report_job($1, $2, 2)", [
+        workspaceId,
+        patientId,
+      ]),
+      /rate_limit_exceeded/,
+    );
+    await client.query("rollback to savepoint report_revision_growth");
+  } finally {
+    await client.query("rollback");
+    await client.end();
+  }
+});
+
+test("sandbox retained ceilings serialize concurrent insert admission", async () => {
+  const first = new pg.Client({ connectionString: DATABASE_URL });
+  const second = new pg.Client({ connectionString: DATABASE_URL });
+  await Promise.all([first.connect(), second.connect()]);
+  await Promise.all([first.query("begin"), second.query("begin")]);
+  try {
+    await first.query("insert into ihear.workspaces default values");
+    await second.query("set local lock_timeout = '200ms'");
+    await assert.rejects(
+      second.query("insert into ihear.workspaces default values"),
+      /lock timeout|canceling statement due to lock timeout/,
+    );
+  } finally {
+    await Promise.allSettled([first.query("rollback"), second.query("rollback")]);
+    await Promise.all([first.end(), second.end()]);
   }
 });

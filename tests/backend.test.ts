@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { inspectWav, eventFingerprint } from "../src/lib/server/wav";
 import {
   parseEventMetadata,
@@ -14,7 +15,12 @@ import {
   setSessionCookie,
 } from "../src/lib/server/security";
 import { OWNER_COOKIE, PATIENT_COOKIE } from "../src/lib/server/constants";
-import { readBoundedBody } from "../src/lib/server/http";
+import {
+  errorResponse,
+  MAX_JSON_BYTES,
+  readBoundedBody,
+  readJson,
+} from "../src/lib/server/http";
 
 function wav(
   sampleRate = 16_000,
@@ -271,4 +277,66 @@ test("bounded request reading enforces actual streamed bytes despite a false Con
     ),
     /request body is too large/,
   );
+});
+
+test("JSON request reading uses the shared 64 KiB streamed body bound", async () => {
+  assert.deepEqual(
+    await readJson(
+      new Request("http://localhost/api", {
+        method: "POST",
+        body: JSON.stringify({ ok: true }),
+      }),
+    ),
+    { ok: true },
+  );
+  await assert.rejects(
+    readJson(
+      new Request("http://localhost/api", {
+        method: "POST",
+        body: JSON.stringify({ value: "x".repeat(MAX_JSON_BYTES) }),
+      }),
+    ),
+    /request body is too large/,
+  );
+});
+
+test("unexpected API errors log only a fixed classification", () => {
+  const original = console.error;
+  const lines: string[] = [];
+  console.error = (...values: unknown[]) => lines.push(values.join(" "));
+  try {
+    const response = errorResponse(
+      new Error("secret SQL at /api/pair/SECRET with patient payload"),
+    );
+    assert.equal(response.status, 500);
+  } finally {
+    console.error = original;
+  }
+  assert.deepEqual(lines, [
+    '{"event":"ihear_api_error","classification":"unexpected"}',
+  ]);
+  assert.doesNotMatch(lines[0], /secret|SQL|patient|\/api\//i);
+});
+
+test("event upload admission executes before the multipart stream is read", () => {
+  const source = readFileSync(
+    new URL("../src/app/api/events/route.ts", import.meta.url),
+    "utf8",
+  );
+  const admission = source.indexOf("await admitEventUploadRequest(");
+  const bodyRead = source.indexOf("await readBoundedBody(");
+  assert.ok(admission >= 0);
+  assert.ok(bodyRead > admission);
+});
+
+test("the loopback proxy replaces client-supplied forwarding before IP hashing", () => {
+  const config = readFileSync(
+    new URL("../ops/monitor/nginx/ihear.conf.template", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    config,
+    /proxy_set_header\s+X-Forwarded-For\s+\$remote_addr;/,
+  );
+  assert.doesNotMatch(config, /proxy_add_x_forwarded_for/);
 });
