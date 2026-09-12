@@ -46,7 +46,21 @@ The displayed grouped code is the raw base32 token formatted for readability; it
 
 `id uuid primary key` (client supplied), `workspace_id uuid not null`, `patient_id uuid not null`, `kind text` (`understood` or `difficult`), `difficulty text null`, `environment text null`, `captured_at timestamptz`, `capture jsonb`, `profile_snapshot jsonb`, `profile_version integer`, `audio_object_path text unique`, `audio_deleted_at timestamptz null`, `audio_sha256 bytea`, `request_fingerprint bytea`, `audio_bytes integer`, `duration_seconds numeric`, `pipeline_version integer default 1`, `status text` (`uploading`, `queued`, `analysing`, `ready`, `failed`), `error text null`, `search_vector tsvector`, `created_at timestamptz`, `updated_at timestamptz`.
 
-The route rejects a declared oversized body early, then reads the request stream through a hard 2.3 MB cap before multipart parsing. This also bounds chunked requests and false `Content-Length` headers. The server then computes the fingerprint from canonical metadata plus the audio SHA-256. `reserve_event_upload` takes the scoped IP hash, serializes on the event ID, applies admission limits only for a new event, and snapshots the current profile. Reserving the same `(workspace_id, patient_id, id)` and fingerprint returns the same row; any mismatch is a conflict. Only an `uploading` reservation may write or rewrite the deterministic Storage object; a terminal failed duplicate returns its existing state without reintroducing deleted audio. Finalization and durable enqueue are one SQL transaction. `difficulty` and `environment` are required for `difficult` events and must be null for `understood` events. The event search vector covers kind, difficulty, environment, and the capture source label.
+The route admits each upload request before reading its body, including duplicate
+requests, using 120 scoped-IP requests/hour, 60 per patient/hour and 1,000 globally/hour.
+It rejects a declared oversized body early, then reads the stream through a hard
+2.3 MB cap before multipart parsing. This also bounds chunked requests and false
+`Content-Length` headers. JSON routes separately enforce a streamed 64 KiB cap.
+The server computes the fingerprint from canonical metadata plus the audio SHA-256.
+`reserve_event_upload` takes the global capacity lock before event/patient locks,
+applies new-event admission only for a new row, and snapshots the current profile.
+Reserving the same `(workspace_id, patient_id, id)` and fingerprint returns the
+same row; any mismatch is a conflict. Only an `uploading` reservation may write or
+rewrite the deterministic Storage object; a terminal failed duplicate returns its
+existing state without reintroducing deleted audio. Finalization and durable
+enqueue are one SQL transaction. `difficulty` and `environment` are required for
+`difficult` events and must be null for `understood` events. The event search vector
+covers kind, difficulty, environment, and the capture source label.
 
 ### `ihear.analyses`
 
@@ -84,7 +98,49 @@ There is one event job per `(event_id, kind, version)` and one report job per `(
 
 Budget reservation locks the singleton global account, counts usage across every workspace, and atomically enforces the USD 20 total and USD 3 per day in the fixed budget timezone. The five `event_interpretation` limit remains per patient/day in that patient's clinic timezone. Retry uses the same reservation only for the same provider attempt result; ambiguous evidence always returns `held_ambiguity` before idempotency lookup, and a deliberate new paid attempt requires a new atomic reservation and idempotency key. Normal settlement requires actual cost at or below the reserved upper bound. If provider-reported cost nevertheless exceeds it, `settle_api_budget_overage(usage_id, actual_cost, provider_request_id, reason)` records the full actual amount and freezes the singleton account in the same transaction. Every subsequent reservation returns `held_budget_frozen`, including idempotent keys, so no retry can make another paid call until explicit owner repair. Limits never auto-increase.
 
-`ihear.create_workspace_with_capability(...)` atomically enforces 10 creations per scoped IP hash/hour and 200 globally/hour. `ihear.assert_event_admission(...)` enforces 60 event admissions per scoped IP hash/hour, 30 per patient/hour, 500 globally/hour, and at most 200 active event jobs. Rejection raises `rate_limit_exceeded` and rolls the counter changes back. These limits are operational safeguards, not product entitlements.
+`ihear.create_workspace_with_capability(...)` atomically enforces 10 creations per
+scoped IP hash/hour and 200 globally/hour. `ihear.assert_event_admission(...)`
+enforces 60 new-event admissions per scoped IP hash/hour, 30 per patient/hour and
+500 globally/hour. At most 200 active jobs plus unfinalized upload reservations
+may exist globally. Finalizing an upload replaces its slot with a job slot; it
+does not count the same work twice. Rate rejection rolls its counter changes back.
+These limits are operational safeguards, not product entitlements.
+
+### `ihear.sandbox_limits`
+
+This protected singleton sets finite retained-row ceilings. Serialized insert
+triggers reject new growth without deleting or replacing existing records.
+Browser roles cannot read or change it. Defaults are:
+
+| Resource | Global ceiling | Additional ceiling |
+| --- | --- | --- |
+| Workspaces | 500 | Creation rate above |
+| Patients | 5,000 | 100 per workspace |
+| Capabilities | 50,000 | 50 patient capabilities per patient |
+| Pairing tokens | 25,000 | 500 per workspace; 50 per patient |
+| Events | 10,000 | 5,000 per workspace |
+| Reports | 2,000 | 100 per patient |
+| Jobs, including terminal rows | 12,000 | 200 active jobs plus uploading events |
+| Active report jobs | 50 | 50 per workspace; included in the active-job ceiling |
+
+Patient creation admits 30 per workspace/hour and 200 globally/hour. Profile
+changes admit 30 per patient/hour and 300 per workspace/hour. New pairing tokens
+admit 12 per patient/hour, 120 per workspace/hour and 500 globally/hour. On-demand
+new report revisions admit 6 per patient/hour, 60 per workspace/hour and 200
+globally/hour, with request limits of 60 per patient/hour and 600 globally/hour.
+A cached current report remains reusable when growth limits are saturated.
+
+All paths that combine retained growth with patient/event/pairing row locks take
+`lock_sandbox_capacity()` first. Automatic report scheduling uses the same retained
+and queue ceilings with one savepoint per candidate, but does not consume web
+request quotas. A rejected candidate does not undo earlier enqueues. The worker
+reports actual new jobs, returns normally at capacity and continues reading its
+existing queue; an unexpected scheduling failure is classified and retried after
+60 seconds while queue processing continues.
+
+These defaults bound data counts, not measured concurrent-user capacity or a
+filesystem quota. No automatic metadata/PDF deletion is introduced. Public release
+still requires retention, disk-pressure and load acceptance in SECURITY.md.
 
 ## SQL/RPC worker interface
 

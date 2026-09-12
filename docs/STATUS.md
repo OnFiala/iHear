@@ -5,11 +5,19 @@ Local application end-to-end verification: PASS. Physical iOS coverage: PARTIAL.
 Public application release: NOT RUN.** No public application or paid cloud resource
 was provisioned. Interpretation API use is intentionally disabled.
 
+The security update is source-reviewed with 26 runtime tests, 10 publication
+scanner tests, 18 audio/backend tests, 41 worker unit tests, five real PostgreSQL
+integration suites and a separate real scheduler saturation/recovery test passing.
+It adds private-origin redaction, observed-IP publication checks, live ingress drift
+reporting, owner-only application ingress, a confined web account, request limits
+and finite database growth. Live installation acceptance is pending below.
+The private/public boundary and proposed hostname are in [SECURITY.md](SECURITY.md).
+
 The dedicated Ubuntu ThinkPad runs independently of the MacBook. OpenClaw is
-disabled/stopped with its data retained. The exact runtime checkout is
+disabled/stopped with its data retained. The initial accepted runtime checkout was
 `07c57099c1b28ded53f938753e339ee5adc8aaa9`; its protected manifest matches the
-running worker image and Next build. Later source changes in this handoff only
-record evidence and improve the skill's host-selection instructions.
+then-running worker image and Next build. The following security update changes
+the runtime; its deployment and acceptance evidence are recorded separately.
 The canonical operating entrypoint is [SANDBOX.md](SANDBOX.md).
 
 Linux evidence: 11 runtime-contract tests, 16 monitor tests, 39 isolated x86_64

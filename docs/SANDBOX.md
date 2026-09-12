@@ -4,7 +4,10 @@ The dedicated ThinkPad is a private iHear runtime. The MacBook remains the sourc
 authoring machine. Exact SSH aliases, the pinned public host fingerprint, paths,
 tool binaries and private HTTPS origins are recorded in ignored
 `.local/sandbox/host.json` and the iHear CORTEX sandbox record. No private key or
-service token belongs in this document. The project skill at
+service token belongs in this document. The separate Linux binding is ignored
+`.local/sandbox/runtime.json`, owned by the operator with mode 0600; it holds only
+the schema version and expected hostname. [SECURITY.md](SECURITY.md) owns the
+private connection boundary and the public demo gate. The project skill at
 `.agents/skills/ihear-sandbox/SKILL.md` loads this runbook for future operations;
 a new MCP server would add an unnecessary service and privilege boundary.
 
@@ -29,7 +32,7 @@ remote mutation. Never disable host-key verification to repair a connection.
 | Component | Owner | Listener / storage |
 | --- | --- | --- |
 | Supabase + worker | `ihear-stack.service`, operator ondrej, local Docker | Supabase published ports only on 127.0.0.1 |
-| Next.js | `ihear-web.service`, operator ondrej | 127.0.0.1:3000 |
+| Next.js | `ihear-web.service`, locked system account ihear-web | 127.0.0.1:3000 |
 | App proxy | nginx | 127.0.0.1:8080 |
 | Dashboard | `ihear-monitor-dashboard.service`, unprivileged ihear-monitor | 127.0.0.1:9080 |
 | Collector | `ihear-monitor-collector.service`, root, triggered by timer | `/var/lib/ihear-monitor/metrics.sqlite` |
@@ -43,12 +46,26 @@ UFW allows the two HTTPS ports only on `tailscale0`. No Funnel or public app
 deployment is used. Supabase Studio is accessible only through an explicit SSH
 port forward when needed.
 
-The dashboard accepts only the exact tailnet owner login injected by Tailscale
-Serve. Direct loopback requests without that identity receive 403. Its server
+The app proxy and dashboard accept only the exact tailnet owner login injected by
+Tailscale Serve. Direct loopback requests without that identity receive 403. The dashboard server
 cannot bind to a public interface, exposes no controls and opens telemetry SQLite
 read-only. The root collector is a separate, root-owned program; its privilege is
 needed for bounded local Docker inspection. See `ops/monitor/README.md` for the
 complete minimized data contract.
+
+The web account has no Docker or supplementary group and no login shell. systemd
+hides operator home directories, mounts the checkout and exact Node executable
+read-only, and supplies the mode-0600 environment file through the service manager.
+The web account cannot read that file or the operator's SSH state. Persistent
+framework writes go to a private cache bind; temporary files use private `/tmp`.
+Memory is capped at 768 MiB, CPU at 150% of one core and tasks at 128. Do not add
+the account to the operator/Docker groups to repair a permission error.
+
+Private nginx enforces 20 requests/second globally, burst 40, 24 active requests,
+bounded timeouts and a 3 MiB body ceiling. Application and database admission add
+smaller body limits, scoped rate limits and finite retained-data/queue ceilings.
+These are local overload controls. Public volumetric DDoS protection requires the
+separate edge/tunnel configuration and acceptance in SECURITY.md.
 
 ## Prepare, activate and update
 
@@ -70,8 +87,8 @@ sudo systemctl enable --now ihear-monitor-collector.timer ihear-monitor-dashboar
 ```
 
 `IHEAR_PRIVATE_ORIGIN` means the exact app origin in the verified private binding.
-The installer validates the dedicated hostname/path and derives the permitted
-dashboard login from current Tailscale state. It installs root-owned monitor
+The installer validates the protected host binding/path and derives the permitted
+app/dashboard login from current Tailscale state. It installs root-owned monitor
 sources, nginx configuration, log rotation and systemd units. It does not create
 ingress or change the power policy. Validate and inspect accepted Tailscale Serve
 configuration after setting the two private ports, as shown in the monitor README.
@@ -88,6 +105,8 @@ Both prepare/start require a clean committed checkout and the exact current
 Tailscale node DNS name on HTTPS port 8446. Successful preparation writes mode-0600
 `.local/linux-artifacts.json` binding HEAD, worker image ID and Next BUILD_ID.
 Startup rejects a missing or mismatched manifest before changing services.
+Prepare and start reject Funnel, unexpected Serve hosts/ports/upstreams and unknown
+Serve configuration fields. Normal status output reports origin checks as booleans.
 
 Before any update record remote HEAD, branch/detached state and dirty status.
 Preserve and reconcile unexpected changes. Fetch an explicitly reviewed source
@@ -174,9 +193,10 @@ cleanup.
 
 ## Acceptance evidence
 
-Verified on 2026-09-12 against clean runtime commit
+Initial acceptance on 2026-09-12 used clean runtime commit
 `07c57099c1b28ded53f938753e339ee5adc8aaa9`. The later handoff documentation/skill
-commit does not change the deployed application, launcher, monitor or unit files.
+commit recorded that initial evidence. The security update below supersedes this
+source/artifact binding; the closed-lid and reboot observations remain historical.
 
 | Check | Observed result |
 | --- | --- |
@@ -192,10 +212,10 @@ commit does not change the deployed application, launcher, monitor or unit files
 | Approved reboot | Requested 13:48:18 UTC; SSH and all main services verified by 13:50:18 UTC; no manual boot interaction requested; data, env hash and telemetry retained |
 | Boot timing | systemd-analyze reported 58.628s (10.062s firmware, 6.702s loader, 1.999s kernel, 39.863s userspace); this excludes shutdown time |
 
-The deployed worker image is
+The initial deployed worker image was
 `sha256:7712114f462d0ba6dd004ff67cb81c3a813f31d0de20ab328167380cd8eefe3e`;
-the Next BUILD_ID is `vByxsc45d-wJkiEcUjAbw`. Both match the runtime manifest.
-Applied migration head remains `20260911182710_default_report_template_version_2`.
+the Next BUILD_ID was `vByxsc45d-wJkiEcUjAbw`. Both matched its runtime manifest.
+The initial migration head was `20260911182710_default_report_template_version_2`.
 The Linux database is separate from the MacBook's earlier phone-test database;
 no patient data or browser capabilities were copied between them.
 

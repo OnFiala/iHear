@@ -41,8 +41,9 @@ erased from public certificate records. Tailscale still restricts network access
 the owner identity gate is a separate control. This is documented by
 [Tailscale's HTTPS guidance](https://tailscale.com/docs/how-to/set-up-https-certificates).
 
-The initial reachable-history audit examined 234 blobs. No complete private
-tailnet address, SSH alias, key fingerprint or key path was found. A short machine
+The reachable-history audit examined 259 blobs, including the security changes.
+No complete private tailnet address, observed host IP address, SSH alias, key
+fingerprint or key path was found. A short machine
 label appeared in older source; it was removed from current source. Existing
 public history was preserved. This is not a claim that a historical label or
 previously shared transcript can be made secret again.
@@ -86,6 +87,13 @@ metrics have bounded retention; operational journals remain private.
 
 ## Proposed public entry point — not activated
 
+Read-only account inspection on 2026-09-12 confirmed that the owner holds
+`ofops.co` and `ofops.online` at Active24, both with displayed expiry 2027-02-10.
+`ofops.co` is already active on Cloudflare Free. `ihear.ofops.co` has no explicit
+DNS record and currently inherits wildcard records. It is the proposed app
+hostname; no DNS record, existing tunnel or mail setting was changed. Account
+access is verified, but it does not approve public activation or paid features.
+
 For a future public demo on this host, use an owner-approved public domain through
 Cloudflare's protected edge and an outbound Cloudflare Tunnel. No DNS A/AAAA
 record may point to the server's real address. No router port forwarding, public
@@ -125,6 +133,13 @@ Public activation requires all of the following evidence:
 **Public release remains NO-GO until this gate is satisfied.** No Funnel,
 Cloudflare account/tunnel, public DNS change, paid resource or public application
 activation is authorized by a passing private test or source publication.
+
+The 2026-09-12 installed-host audit found 105 upgradable Ubuntu packages, with
+89 entries listing a security pocket, including SSH/TLS runtime components.
+No OS package upgrade or additional reboot was performed during the application
+security update. Package maintenance, restart planning and post-update recovery
+verification remain prerequisites for public activation. This inventory is not a
+claim that every pending package maps to a confirmed exploitable vulnerability.
 
 ## Recovery
 
