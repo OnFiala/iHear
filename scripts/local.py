@@ -143,7 +143,8 @@ def main() -> None:
         run(['pnpm', 'exec', 'supabase', 'migration', 'up', '--local'], env=env)
         run(compose + ['up', '--build', '-d'], env=env)
         start_web(args.production)
-        print(f"Web: http://localhost:3000\nPairing origin: {values['APP_PUBLIC_ORIGIN']}\nStudio: http://127.0.0.1:54323\nLocal keys are stored only in ignored .env.local.")
+        origin_configured = bool(values.get('APP_PUBLIC_ORIGIN'))
+        print(f"Web: http://localhost:3000\noriginConfigured: {str(origin_configured).lower()}\nStudio: http://127.0.0.1:54323\nLocal keys are stored only in ignored .env.local.")
     elif args.action == 'stop':
         stop_web()
         run(compose + ['down'], env=env)
@@ -159,7 +160,7 @@ def main() -> None:
     else:
         result = run(['pnpm', 'exec', 'supabase', 'status', '-o', 'json'], env=env, capture=True)
         status = json.loads(result.stdout)
-        print(json.dumps({'webManagedProcessRunning': web_running(), 'supabaseURL': status.get('API_URL'), 'studioURL': status.get('STUDIO_URL'), 'pairingOrigin': read_env().get('APP_PUBLIC_ORIGIN')}, indent=2))
+        print(json.dumps({'webManagedProcessRunning': web_running(), 'supabaseURL': status.get('API_URL'), 'studioURL': status.get('STUDIO_URL'), 'originConfigured': bool(read_env().get('APP_PUBLIC_ORIGIN'))}, indent=2))
         run(compose + ['ps'], env=env)
 
 if __name__ == '__main__':

@@ -225,6 +225,14 @@ def _contains_enabled_funnel(value: object) -> bool:
     return bool(value)
 
 
+class IngressValidationError(RuntimeError):
+    """A private-ingress policy failure with a safe diagnostic reason."""
+
+    def __init__(self, reason: str, message: str) -> None:
+        super().__init__(message)
+        self.reason = reason
+
+
 def ensure_private_ingress(env: dict[str, str], *, require_app: bool) -> None:
     """Accept only the private app/dashboard Serve mappings for this node."""
     dns_name = observed_tailscale_dns_name(env)
@@ -232,27 +240,42 @@ def ensure_private_ingress(env: dict[str, str], *, require_app: bool) -> None:
     try:
         config = json.loads(result.stdout)
     except json.JSONDecodeError as error:
-        raise RuntimeError("Tailscale Serve configuration is unreadable.") from error
+        raise IngressValidationError(
+            "invalid_configuration", "Tailscale Serve configuration is unreadable."
+        ) from error
     if not isinstance(config, dict):
-        raise RuntimeError("Tailscale Serve configuration is invalid.")
+        raise IngressValidationError(
+            "invalid_configuration", "Tailscale Serve configuration is invalid."
+        )
     if not config:
         if require_app:
-            raise RuntimeError("The required private Tailscale Serve mapping is missing.")
+            raise IngressValidationError(
+                "missing_app_mapping",
+                "The required private Tailscale Serve mapping is missing.",
+            )
         return
 
     allowed_top_level = {"TCP", "Web", "AllowFunnel", "Services", "Foreground"}
     if set(config) - allowed_top_level:
-        raise RuntimeError("Tailscale Serve contains an unexpected configuration section.")
+        raise IngressValidationError(
+            "policy_mismatch", "Tailscale Serve contains an unexpected configuration section."
+        )
     if _contains_enabled_funnel(config.get("AllowFunnel")):
-        raise RuntimeError("Tailscale Funnel must remain disabled for the private runtime.")
+        raise IngressValidationError(
+            "funnel_enabled", "Tailscale Funnel must remain disabled for the private runtime."
+        )
     if config.get("Services") or config.get("Foreground"):
-        raise RuntimeError("Tailscale Serve contains an unexpected service mapping.")
+        raise IngressValidationError(
+            "policy_mismatch", "Tailscale Serve contains an unexpected service mapping."
+        )
 
     tcp = config.get("TCP") or {}
     web = config.get("Web") or {}
     funnels = config.get("AllowFunnel") or {}
     if not isinstance(tcp, dict) or not isinstance(web, dict) or not isinstance(funnels, dict):
-        raise RuntimeError("Tailscale Serve configuration is invalid.")
+        raise IngressValidationError(
+            "invalid_configuration", "Tailscale Serve configuration is invalid."
+        )
 
     expected = {
         "8446": (f"{dns_name}:8446", "http://127.0.0.1:8080"),
@@ -262,20 +285,41 @@ def ensure_private_ingress(env: dict[str, str], *, require_app: bool) -> None:
     for port, tcp_config in tcp.items():
         expected_mapping = expected.get(str(port))
         if expected_mapping is None or tcp_config != {"HTTPS": True}:
-            raise RuntimeError("Tailscale Serve contains an unexpected TCP mapping.")
+            raise IngressValidationError(
+                "policy_mismatch", "Tailscale Serve contains an unexpected TCP mapping."
+            )
         host, upstream = expected_mapping
         if web.get(host) != {"Handlers": {"/": {"Proxy": upstream}}}:
-            raise RuntimeError("Tailscale Serve contains an unexpected HTTPS handler.")
+            raise IngressValidationError(
+                "policy_mismatch", "Tailscale Serve contains an unexpected HTTPS handler."
+            )
         present.add(str(port))
 
     expected_hosts = {expected[port][0] for port in present}
     if set(web) != expected_hosts:
-        raise RuntimeError("Tailscale Serve contains an unexpected HTTPS host or handler.")
+        raise IngressValidationError(
+            "policy_mismatch", "Tailscale Serve contains an unexpected HTTPS host or handler."
+        )
     allowed_funnel_hosts = {mapping[0] for mapping in expected.values()}
     if set(funnels) - allowed_funnel_hosts:
-        raise RuntimeError("Tailscale Serve contains an unexpected Funnel host.")
+        raise IngressValidationError(
+            "policy_mismatch", "Tailscale Serve contains an unexpected Funnel host."
+        )
     if require_app and "8446" not in present:
-        raise RuntimeError("The required private Tailscale Serve mapping is missing.")
+        raise IngressValidationError(
+            "missing_app_mapping",
+            "The required private Tailscale Serve mapping is missing.",
+        )
+
+
+def private_ingress_status(env: dict[str, str]) -> dict[str, bool | str | None]:
+    try:
+        ensure_private_ingress(env, require_app=True)
+    except IngressValidationError as error:
+        return {"ingressValid": False, "ingressReason": error.reason}
+    except RuntimeError:
+        return {"ingressValid": False, "ingressReason": "unavailable"}
+    return {"ingressValid": True, "ingressReason": None}
 
 
 def existing_start_origin() -> str:
@@ -593,6 +637,7 @@ def status(env: dict[str, str]) -> None:
         "originConfigured": origin_configured,
         "originMatchesObservedIdentity": origin_matches_observed_identity,
     }
+    ingress_status = private_ingress_status(env)
     daemon = run(
         ["docker", "info", "--format", "{{.ServerVersion}}"],
         env=env,
@@ -607,6 +652,7 @@ def status(env: dict[str, str]) -> None:
                     "supabaseRunning": False,
                     "workerRunning": False,
                     **origin_status,
+                    **ingress_status,
                 },
                 indent=2,
             )
@@ -625,6 +671,7 @@ def status(env: dict[str, str]) -> None:
         "workerRunning": worker.returncode == 0 and bool(worker.stdout.strip()),
         "webManagedBy": "systemd",
         **origin_status,
+        **ingress_status,
     }
     print(json.dumps(payload, indent=2))
     if supabase.returncode == 0:

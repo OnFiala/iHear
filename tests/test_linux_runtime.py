@@ -22,6 +22,51 @@ import install as linux_install  # noqa: E402
 
 
 class LinuxRuntimeTests(unittest.TestCase):
+    def test_local_start_and_status_do_not_disclose_private_origin(self) -> None:
+        private_origin = "https://private-local-marker.example-tailnet.ts.net:8446"
+        local = linux.local_runtime
+        supabase = subprocess.CompletedProcess(
+            [],
+            0,
+            json.dumps(
+                {
+                    "API_URL": "http://127.0.0.1:54321",
+                    "STUDIO_URL": "http://127.0.0.1:54323",
+                }
+            ),
+            "",
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            output = io.StringIO()
+            with patch.object(local, "LOCAL", Path(temp)), patch.object(
+                local, "docker_env", return_value={}
+            ), patch.object(local, "run", return_value=supabase), patch.object(
+                local.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 0, "", ""),
+            ), patch.object(
+                local, "make_env", return_value={"APP_PUBLIC_ORIGIN": private_origin}
+            ), patch.object(local, "start_web"), patch.object(
+                sys, "argv", ["local.py", "start"]
+            ), redirect_stdout(output):
+                local.main()
+            self.assertIn("originConfigured: true", output.getvalue())
+            self.assertNotIn("private-local-marker", output.getvalue())
+
+            output = io.StringIO()
+            with patch.object(local, "LOCAL", Path(temp)), patch.object(
+                local, "docker_env", return_value={}
+            ), patch.object(local, "run", return_value=supabase), patch.object(
+                local, "read_env", return_value={"APP_PUBLIC_ORIGIN": private_origin}
+            ), patch.object(local, "web_running", return_value=True), patch.object(
+                sys, "argv", ["local.py", "status"]
+            ), redirect_stdout(output):
+                local.main()
+            payload = json.loads(output.getvalue())
+            self.assertTrue(payload["originConfigured"])
+            self.assertNotIn("pairingOrigin", payload)
+            self.assertNotIn("private-local-marker", output.getvalue())
+
     def test_loopback_port_bindings_are_accepted(self) -> None:
         ports = {"8000/tcp": [{"HostIp": "127.0.0.1", "HostPort": "54321"}]}
         result = subprocess.CompletedProcess([], 0, json.dumps(ports), "")
@@ -623,7 +668,9 @@ class LinuxRuntimeTests(unittest.TestCase):
         output = io.StringIO()
         with patch.object(linux.local_runtime, "read_env", return_value={"APP_PUBLIC_ORIGIN": private_origin}), patch.object(
             linux, "ensure_expected_origin", return_value=private_origin
-        ), patch.object(linux, "run", side_effect=fake_run), redirect_stdout(output):
+        ), patch.object(linux, "ensure_private_ingress"), patch.object(
+            linux, "run", side_effect=fake_run
+        ), redirect_stdout(output):
             linux.status({})
         payload = json.loads(output.getvalue())
         self.assertTrue(payload["originConfigured"])
@@ -646,6 +693,54 @@ class LinuxRuntimeTests(unittest.TestCase):
         ), redirect_stdout(start_output):
             linux.start({})
         self.assertNotIn("private-needle", start_output.getvalue())
+
+    def test_status_classifies_live_private_ingress_drift(self) -> None:
+        dns_name = "private-status-marker.example-tailnet.ts.net"
+        valid = {
+            "TCP": {"8446": {"HTTPS": True}},
+            "Web": {
+                f"{dns_name}:8446": {
+                    "Handlers": {"/": {"Proxy": "http://127.0.0.1:8080"}}
+                }
+            },
+            "AllowFunnel": {f"{dns_name}:8446": False},
+        }
+        funnel = json.loads(json.dumps(valid))
+        funnel["AllowFunnel"][f"{dns_name}:8446"] = True
+        bypass = json.loads(json.dumps(valid))
+        bypass["Web"][f"{dns_name}:8446"]["Handlers"]["/"]["Proxy"] = (
+            "http://127.0.0.1:3000"
+        )
+
+        for config, expected_reason in (
+            (funnel, "funnel_enabled"),
+            (bypass, "policy_mismatch"),
+        ):
+            def fake_run(command: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+                if command == ["tailscale", "status", "--json"]:
+                    payload: object = {"Self": {"DNSName": f"{dns_name}."}}
+                elif command == ["tailscale", "serve", "status", "--json"]:
+                    payload = config
+                elif command[:2] == ["docker", "info"]:
+                    return subprocess.CompletedProcess(command, 0, "fixture", "")
+                elif command[-5:] == ["supabase", "status", "-o", "json"]:
+                    return subprocess.CompletedProcess(command, 0, "{}", "")
+                else:
+                    return subprocess.CompletedProcess(command, 0, "worker-id", "")
+                return subprocess.CompletedProcess(command, 0, json.dumps(payload), "")
+
+            output = io.StringIO()
+            origin = f"https://{dns_name}:8446"
+            with self.subTest(reason=expected_reason), patch.object(
+                linux.local_runtime, "read_env", return_value={"APP_PUBLIC_ORIGIN": origin}
+            ), patch.object(linux, "run", side_effect=fake_run), patch.object(
+                linux, "ensure_loopback_bindings"
+            ), redirect_stdout(output):
+                linux.status({})
+            payload = json.loads(output.getvalue())
+            self.assertFalse(payload["ingressValid"])
+            self.assertEqual(payload["ingressReason"], expected_reason)
+            self.assertNotIn("private-status-marker", output.getvalue())
 
 
 if __name__ == "__main__":
