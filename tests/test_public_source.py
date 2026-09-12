@@ -38,6 +38,22 @@ class PublicSourceTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 module.private_values(Path(directory) / "missing.json", required=True)
 
+    def test_private_ipv4_and_ipv6_addresses_are_checked(self):
+        with tempfile.TemporaryDirectory() as directory:
+            binding = Path(directory) / "host.json"
+            binding.write_text(json.dumps({"ip_addresses": ["192.0.2.8", "2001:db8::8"]}))
+            private = module.private_values(binding)
+            for address in (b"192.0.2.8", b"2001:db8::8", b"2001:0db8:0000:0000:0000:0000:0000:0008"):
+                self.assertIn("private-host-binding", module.inspect("README.md", address, private))
+
+    def test_required_binding_cannot_be_empty_or_omit_addresses(self):
+        with tempfile.TemporaryDirectory() as directory:
+            binding = Path(directory) / "host.json"
+            for document in ({}, {field: "private-marker" for field in module.PRIVATE_FIELDS}):
+                binding.write_text(json.dumps(document))
+                with self.assertRaises(ValueError):
+                    module.private_values(binding, required=True)
+
     def test_binding_summary_does_not_echo_connection_metadata(self):
         helper_spec = importlib.util.spec_from_file_location("sandbox", Path(__file__).resolve().parents[1] / "scripts/sandbox.py")
         helper = importlib.util.module_from_spec(helper_spec)

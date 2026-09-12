@@ -7,6 +7,7 @@ publication check, not a general secret scanner or an image/OCR audit.
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 from pathlib import Path
 import re
@@ -38,11 +39,24 @@ def private_values(binding: Path, required: bool = False) -> list[bytes]:
             raise ValueError("The ignored private sandbox binding is required for this check.")
         return []
     document = json.loads(binding.read_text())
+    if not isinstance(document, dict):
+        raise ValueError("The private sandbox binding must be an object.")
     values = []
     for field in PRIVATE_FIELDS:
         value = document.get(field)
         if isinstance(value, str) and len(value) >= 6:
             values.append(value.lower().encode())
+        elif required:
+            raise ValueError("The private sandbox identity binding is incomplete.")
+    addresses = document.get("ip_addresses", [])
+    if not isinstance(addresses, list) or (required and not addresses):
+        raise ValueError("The private sandbox address binding is incomplete.")
+    for address in addresses:
+        if not isinstance(address, str):
+            raise ValueError("The private sandbox address binding is invalid.")
+        parsed = ipaddress.ip_address(address)
+        # Include canonical and expanded IPv6 spellings without printing either.
+        values.extend(value.lower().encode() for value in (address, str(parsed), parsed.exploded))
     return values
 
 
