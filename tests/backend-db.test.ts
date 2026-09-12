@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
-import pg from "pg";
+import pg, { type QueryResult } from "pg";
 
 const DATABASE_URL =
   process.env.DATABASE_URL ??
@@ -506,6 +506,20 @@ test("sandbox admission bounds retained growth, duplicate uploads, profile edits
     );
     const patientId = patient.rows[0].id;
 
+    const retainedDefaults = await client.query<{
+      max_events_global: number;
+      max_reports_global: number;
+      max_jobs_global: number;
+    }>(
+      `select max_events_global, max_reports_global, max_jobs_global
+       from ihear.sandbox_limits where singleton`,
+    );
+    assert.deepEqual(retainedDefaults.rows[0], {
+      max_events_global: 10_000,
+      max_reports_global: 2_000,
+      max_jobs_global: 12_000,
+    });
+
     await client.query(
       "update ihear.sandbox_limits set max_workspaces = (select count(*) from ihear.workspaces) where singleton",
     );
@@ -681,6 +695,7 @@ test("sandbox admission bounds retained growth, duplicate uploads, profile edits
       )`,
       [workspaceId, patientId, profile.audiogram, profile.aids],
     );
+    await client.query("savepoint web_report_rate_rejected");
     await assert.rejects(
       client.query("select ihear.ensure_report_job($1, $2, 2)", [
         workspaceId,
@@ -688,6 +703,33 @@ test("sandbox admission bounds retained growth, duplicate uploads, profile edits
       ]),
       /rate_limit_exceeded/,
     );
+    await client.query("rollback to savepoint web_report_rate_rejected");
+    const countersBeforeSchedule = await client.query<{ scope: string; request_count: number }>(
+      `select scope, request_count from ihear.rate_limit_counters
+       where scope in ('report_request_patient_hour', 'report_growth_patient_hour')
+         and subject_hash = extensions.digest($1::text || ':' || $2::text, 'sha256')
+       order by scope`,
+      [workspaceId, patientId],
+    );
+    assert.deepEqual(countersBeforeSchedule.rows, [
+      { scope: "report_growth_patient_hour", request_count: 6 },
+      { scope: "report_request_patient_hour", request_count: 6 },
+    ]);
+    const scheduledReport = await client.query<{
+      value: { enqueued: boolean; reportId: string };
+    }>("select ihear.ensure_scheduled_report_job($1, $2, 2) as value", [
+      workspaceId,
+      patientId,
+    ]);
+    assert.equal(scheduledReport.rows[0].value.enqueued, true);
+    const countersAfterSchedule = await client.query<{ scope: string; request_count: number }>(
+      `select scope, request_count from ihear.rate_limit_counters
+       where scope in ('report_request_patient_hour', 'report_growth_patient_hour')
+         and subject_hash = extensions.digest($1::text || ':' || $2::text, 'sha256')
+       order by scope`,
+      [workspaceId, patientId],
+    );
+    assert.deepEqual(countersAfterSchedule.rows, countersBeforeSchedule.rows);
     await client.query("rollback to savepoint report_revision_growth");
   } finally {
     await client.query("rollback");
@@ -710,5 +752,85 @@ test("sandbox retained ceilings serialize concurrent insert admission", async ()
   } finally {
     await Promise.allSettled([first.query("rollback"), second.query("rollback")]);
     await Promise.all([first.end(), second.end()]);
+  }
+});
+
+test("report admission takes the global capacity lock before the patient row", async () => {
+  const setup = new pg.Client({ connectionString: DATABASE_URL });
+  const holder = new pg.Client({ connectionString: DATABASE_URL });
+  const reporter = new pg.Client({ connectionString: DATABASE_URL });
+  const capability = new pg.Client({ connectionString: DATABASE_URL });
+  await Promise.all([setup.connect(), holder.connect(), reporter.connect(), capability.connect()]);
+  const hash = (value: string) => createHash("sha256").update(value).digest();
+  const seed = randomUUID();
+  let workspaceId: string | undefined;
+  let reportPromise:
+    | Promise<QueryResult<{ ensure_report_job: { enqueued: boolean } }>>
+    | undefined;
+  try {
+    const workspace = await setup.query<{ id: string }>(
+      "select ihear.create_workspace_with_capability($1, $2) as id",
+      [hash(`${seed}:ip`), hash(`${seed}:owner`)],
+    );
+    workspaceId = workspace.rows[0].id;
+    const patient = await setup.query<{ id: string }>(
+      `select id from ihear.create_patient(
+        $1, 'Lock Order',
+        '{"frequencies":[500],"left":[20],"right":[25]}'::jsonb,
+        '{"side":"none","left":null,"right":null}'::jsonb,
+        '2026-10-01', '', 'Europe/Prague'
+      )`,
+      [workspaceId],
+    );
+    const patientId = patient.rows[0].id;
+    const reporterPid = Number(
+      (await reporter.query<{ pid: number }>("select pg_backend_pid() as pid")).rows[0].pid,
+    );
+    await Promise.all([holder.query("begin"), reporter.query("begin"), capability.query("begin")]);
+    await holder.query("select 1 from ihear.patients where id = $1 for update", [patientId]);
+    await reporter.query("set local statement_timeout = '5s'");
+    reportPromise = reporter.query<{ ensure_report_job: { enqueued: boolean } }>(
+      "select ihear.ensure_report_job($1, $2, 2)",
+      [workspaceId, patientId],
+    );
+
+    let holdsCapacityLock = false;
+    for (let attempt = 0; attempt < 40 && !holdsCapacityLock; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      const locks = await setup.query<{ held: boolean }>(
+        `select exists(
+           select 1 from pg_locks where pid = $1 and locktype = 'advisory' and granted
+         ) as held`,
+        [reporterPid],
+      );
+      holdsCapacityLock = locks.rows[0].held;
+    }
+    assert.equal(holdsCapacityLock, true);
+
+    await capability.query("set local lock_timeout = '200ms'");
+    await assert.rejects(
+      capability.query(
+        `insert into ihear.capabilities(
+           workspace_id, patient_id, kind, token_hash, expires_at
+         ) values ($1, $2, 'patient', $3, now() + interval '1 day')`,
+        [workspaceId, patientId, hash(`${seed}:patient-capability`)],
+      ),
+      /lock timeout|canceling statement due to lock timeout/,
+    );
+    await capability.query("rollback");
+    await holder.query("rollback");
+    const report = await reportPromise;
+    assert.equal(report.rows[0].ensure_report_job.enqueued, true);
+    await reporter.query("rollback");
+  } finally {
+    await Promise.allSettled([
+      holder.query("rollback"),
+      reporter.query("rollback"),
+      capability.query("rollback"),
+    ]);
+    if (reportPromise) await Promise.allSettled([reportPromise]);
+    if (workspaceId)
+      await setup.query("delete from ihear.workspaces where id = $1", [workspaceId]);
+    await Promise.all([setup.end(), holder.end(), reporter.end(), capability.end()]);
   }
 });

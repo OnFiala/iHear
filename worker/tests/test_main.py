@@ -8,6 +8,7 @@ from ihear_worker.main import (
     _job_contract_error,
     _new_attempt_database,
     _parse_queue_payload,
+    _schedule_due_reports_safely,
 )
 
 
@@ -32,6 +33,16 @@ def test_expired_lease_failure_transition_cannot_escape_worker_loop() -> None:
         SimpleNamespace(lost=False),
         __import__("logging").getLogger("test"),
     )
+
+
+def test_report_scheduling_failure_is_nonfatal_to_queue_loop(caplog) -> None:
+    class SaturatedCoordinator:
+        def schedule_due_reports(self, report_version, limit):
+            raise RuntimeError("queue_capacity_exceeded")
+
+    logger = __import__("logging").getLogger("test-scheduler")
+    assert _schedule_due_reports_safely(SaturatedCoordinator(), 2, 50, logger) == 0
+    assert "report scheduling failed: RuntimeError" in caplog.text
 
 
 def test_queue_versions_are_routed_by_job_kind() -> None:

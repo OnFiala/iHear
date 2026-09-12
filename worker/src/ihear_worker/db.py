@@ -228,6 +228,10 @@ class WorkerDatabase:
 
     def schedule_due_reports(self, report_version: int, limit: int = 50) -> int:
         with self.connection() as connection:
+            # Match the database growth paths: admission lock first, patient
+            # row locks second. The lock also keeps two schedulers from
+            # selecting the same due set before either has created its jobs.
+            connection.execute("select ihear.lock_sandbox_capacity()")
             due = connection.execute(
                 """
                 select p.workspace_id, p.id
@@ -244,12 +248,23 @@ class WorkerDatabase:
                 """,
                 (report_version, limit),
             ).fetchall()
+            scheduled = 0
             for patient in due:
-                connection.execute(
-                    "select ihear.ensure_report_job(%s,%s,%s)",
-                    (patient["workspace_id"], patient["id"], report_version),
-                )
-        return len(due)
+                try:
+                    # A rejected candidate rolls back only its own admission
+                    # work. Earlier jobs in the bounded batch still commit.
+                    with connection.transaction():
+                        row = connection.execute(
+                            "select ihear.ensure_scheduled_report_job(%s,%s,%s) as result",
+                            (patient["workspace_id"], patient["id"], report_version),
+                        ).fetchone()
+                except psycopg.Error as exc:
+                    if exc.sqlstate == "P0001":
+                        continue
+                    raise
+                if row and bool(row["result"].get("enqueued")):
+                    scheduled += 1
+        return scheduled
 
     def terminal_audio_cleanup_candidates(self, retention_days: int = 7, limit: int = 50) -> list[dict[str, Any]]:
         with self.connection() as connection:

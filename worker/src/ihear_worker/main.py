@@ -90,6 +90,19 @@ def _handle_failure_safely(
         )
 
 
+def _schedule_due_reports_safely(
+    coordinator: WorkerDatabase, report_version: int, limit: int,
+    logger: logging.Logger,
+) -> int:
+    try:
+        return coordinator.schedule_due_reports(report_version, limit=limit)
+    except Exception as exc:
+        # Scheduling is periodic maintenance. A transient admission or database
+        # failure must not prevent this process from draining existing jobs.
+        logger.error("report scheduling failed: %s", type(exc).__name__)
+        return 0
+
+
 def main() -> None:
     _configure_logging()
     logger = logging.getLogger("ihear_worker")
@@ -119,7 +132,9 @@ def main() -> None:
         while not stopping:
             now = time.monotonic()
             if now >= next_schedule:
-                scheduled = coordinator.schedule_due_reports(settings.report_version, limit=50)
+                scheduled = _schedule_due_reports_safely(
+                    coordinator, settings.report_version, 50, logger,
+                )
                 if scheduled:
                     logger.info("scheduled %d due reports", scheduled)
                 next_schedule = now + 60

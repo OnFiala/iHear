@@ -10,12 +10,12 @@ create table ihear.sandbox_limits (
   max_pairing_tokens_global integer not null default 25000 check (max_pairing_tokens_global > 0),
   max_pairing_tokens_workspace integer not null default 500 check (max_pairing_tokens_workspace > 0),
   max_pairing_tokens_patient integer not null default 50 check (max_pairing_tokens_patient > 0),
-  max_events_global integer not null default 50000 check (max_events_global > 0),
+  max_events_global integer not null default 10000 check (max_events_global > 0),
   max_events_workspace integer not null default 5000 check (max_events_workspace > 0),
-  max_reports_global integer not null default 20000 check (max_reports_global > 0),
+  max_reports_global integer not null default 2000 check (max_reports_global > 0),
   max_reports_workspace integer not null default 2000 check (max_reports_workspace > 0),
   max_reports_patient integer not null default 100 check (max_reports_patient > 0),
-  max_jobs_global integer not null default 70000 check (max_jobs_global > 0),
+  max_jobs_global integer not null default 12000 check (max_jobs_global > 0),
   max_active_jobs_global integer not null default 200 check (max_active_jobs_global > 0),
   max_pending_reports_global integer not null default 50 check (max_pending_reports_global > 0),
   -- The scheduler may enqueue one 50-report batch in a transaction.
@@ -29,6 +29,14 @@ alter table ihear.sandbox_limits force row level security;
 revoke all on table ihear.sandbox_limits from public, anon, authenticated;
 grant all on table ihear.sandbox_limits to service_role;
 
+create function ihear.lock_sandbox_capacity()
+returns void
+language sql
+set search_path = ''
+as $$
+  select pg_advisory_xact_lock(hashtextextended('ihear:sandbox:retained-capacity', 0));
+$$;
+
 create function ihear.enforce_sandbox_retained_capacity()
 returns trigger
 language plpgsql
@@ -41,7 +49,7 @@ declare
 begin
   -- Every retained-row ceiling shares one transaction lock, making count + insert
   -- admission race-safe across concurrent public requests.
-  perform pg_advisory_xact_lock(hashtextextended('ihear:sandbox:retained-capacity', 0));
+  perform ihear.lock_sandbox_capacity();
   select * into strict v_limits from ihear.sandbox_limits where singleton;
 
   case tg_table_name
@@ -184,6 +192,148 @@ for each row execute function ihear.enforce_sandbox_retained_capacity();
 create index pairing_tokens_workspace_patient_created_idx
 on ihear.pairing_tokens (workspace_id, patient_id, created_at desc);
 
+create or replace function ihear.reserve_event_upload(
+  p_event_id uuid,
+  p_workspace_id uuid,
+  p_patient_id uuid,
+  p_ip_hash bytea,
+  p_kind text,
+  p_difficulty text,
+  p_environment text,
+  p_captured_at timestamptz,
+  p_capture jsonb,
+  p_audio_object_path text,
+  p_audio_sha256 bytea,
+  p_request_fingerprint bytea,
+  p_audio_bytes integer,
+  p_duration_seconds numeric,
+  p_pipeline_version integer
+)
+returns jsonb
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_patient ihear.patients%rowtype;
+  v_event ihear.events%rowtype;
+  v_inserted boolean := false;
+begin
+  perform ihear.lock_sandbox_capacity();
+  perform pg_advisory_xact_lock(hashtextextended(p_event_id::text, 0));
+  select * into v_patient
+  from ihear.patients
+  where id = p_patient_id and workspace_id = p_workspace_id
+  for share;
+  if not found then
+    raise exception 'patient_not_found' using errcode = 'P0002';
+  end if;
+
+  select * into v_event from ihear.events where id = p_event_id for update;
+  if found then
+    if v_event.workspace_id <> p_workspace_id
+      or v_event.patient_id <> p_patient_id
+      or v_event.request_fingerprint <> p_request_fingerprint then
+      raise exception 'event_conflict' using errcode = 'P0001';
+    end if;
+    return jsonb_build_object(
+      'eventId', v_event.id, 'disposition', 'existing',
+      'status', v_event.status, 'audioObjectPath', v_event.audio_object_path
+    );
+  end if;
+
+  perform ihear.assert_event_admission(p_ip_hash, p_workspace_id, p_patient_id);
+
+  insert into ihear.events (
+    id, workspace_id, patient_id, kind, difficulty, environment, captured_at, capture,
+    profile_snapshot, profile_version, audio_object_path, audio_sha256, request_fingerprint,
+    audio_bytes, duration_seconds, pipeline_version
+  ) values (
+    p_event_id, p_workspace_id, p_patient_id, p_kind, p_difficulty, p_environment,
+    p_captured_at, p_capture,
+    jsonb_build_object(
+      'displayName', v_patient.display_name,
+      'audiogram', v_patient.audiogram,
+      'aids', v_patient.aids,
+      'followUpDate', to_char(v_patient.follow_up_date, 'YYYY-MM-DD'),
+      'note', v_patient.note,
+      'timezone', v_patient.timezone
+    ),
+    v_patient.profile_version, p_audio_object_path, p_audio_sha256, p_request_fingerprint,
+    p_audio_bytes, p_duration_seconds, p_pipeline_version
+  )
+  returning true into v_inserted;
+
+  select * into v_event from ihear.events where id = p_event_id for update;
+  if v_event.workspace_id <> p_workspace_id
+    or v_event.patient_id <> p_patient_id
+    or v_event.request_fingerprint <> p_request_fingerprint then
+    raise exception 'event_conflict' using errcode = 'P0001';
+  end if;
+
+  return jsonb_build_object(
+    'eventId', v_event.id,
+    'disposition', case when v_inserted then 'reserved' else 'existing' end,
+    'status', v_event.status,
+    'audioObjectPath', v_event.audio_object_path
+  );
+end;
+$$;
+
+create or replace function ihear.finalize_event_upload(
+  p_event_id uuid,
+  p_workspace_id uuid,
+  p_patient_id uuid,
+  p_request_fingerprint bytea
+)
+returns jsonb
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_event ihear.events%rowtype;
+  v_job ihear.jobs%rowtype;
+  v_message_id bigint;
+begin
+  perform ihear.lock_sandbox_capacity();
+  select * into v_event
+  from ihear.events
+  where id = p_event_id and workspace_id = p_workspace_id and patient_id = p_patient_id
+  for update;
+  if not found then
+    raise exception 'event_not_found' using errcode = 'P0002';
+  end if;
+  if v_event.request_fingerprint <> p_request_fingerprint then
+    raise exception 'event_conflict' using errcode = 'P0001';
+  end if;
+
+  insert into ihear.jobs (workspace_id, patient_id, event_id, kind, version, payload)
+  values (
+    v_event.workspace_id, v_event.patient_id, v_event.id, 'event_analysis', v_event.pipeline_version,
+    jsonb_build_object('eventId', v_event.id)
+  )
+  on conflict (event_id, kind, version) where event_id is not null do nothing;
+
+  select * into v_job
+  from ihear.jobs
+  where event_id = v_event.id and kind = 'event_analysis' and version = v_event.pipeline_version
+  for update;
+
+  if v_job.queue_message_id is null and v_job.status in ('queued', 'retry') then
+    select pgmq.send(
+      'ihear_jobs',
+      jsonb_build_object('jobId', v_job.id, 'kind', v_job.kind, 'version', v_job.version)
+    ) into v_message_id;
+    update ihear.jobs set queue_message_id = v_message_id where id = v_job.id;
+  end if;
+
+  if v_event.status = 'uploading' then
+    update ihear.events set status = 'queued', error = null where id = v_event.id;
+  end if;
+
+  return jsonb_build_object('eventId', v_event.id, 'jobId', v_job.id, 'status', 'queued');
+end;
+$$;
+
 create function ihear.create_patient(
   p_workspace_id uuid,
   p_display_name text,
@@ -291,6 +441,7 @@ declare
   v_active_jobs integer;
   v_max_active_jobs integer;
 begin
+  perform ihear.lock_sandbox_capacity();
   if not exists (select 1 from ihear.patients where id = p_patient_id and workspace_id = p_workspace_id) then
     raise exception 'patient_not_found' using errcode = 'P0002';
   end if;
@@ -299,7 +450,6 @@ begin
     'event_patient_hour', extensions.digest(p_workspace_id::text || ':' || p_patient_id::text, 'sha256'), 30, 3600
   );
   perform ihear.consume_rate_limit('event_global_hour', extensions.digest('ihear-event-global', 'sha256'), 500, 3600);
-  perform pg_advisory_xact_lock(hashtextextended('ihear:sandbox:retained-capacity', 0));
   select max_active_jobs_global into strict v_max_active_jobs from ihear.sandbox_limits where singleton;
   select
     (select count(*) from ihear.jobs where status in ('queued', 'running', 'retry'))
@@ -311,10 +461,11 @@ begin
 end;
 $$;
 
-create or replace function ihear.ensure_report_job(
+create function ihear.ensure_report_job_internal(
   p_workspace_id uuid,
   p_patient_id uuid,
-  p_report_version integer default 2
+  p_report_version integer,
+  p_apply_request_limits boolean
 )
 returns jsonb
 language plpgsql
@@ -327,7 +478,11 @@ declare
   v_limits ihear.sandbox_limits%rowtype;
   v_count integer;
   v_message_id bigint;
+  v_enqueued boolean := false;
 begin
+  -- All growth paths take the shared admission lock before row locks. This
+  -- prevents patient/capability foreign-key lock inversions during pairing.
+  perform ihear.lock_sandbox_capacity();
   select * into v_patient from ihear.patients
   where id = p_patient_id and workspace_id = p_workspace_id for update;
   if not found then
@@ -342,24 +497,25 @@ begin
   if not found then
     -- A cached report is read-only and must remain idempotently accessible even
     -- when new report growth is saturated. Request quotas apply before new rows.
-    perform ihear.consume_rate_limit(
-      'report_request_patient_hour',
-      extensions.digest(p_workspace_id::text || ':' || p_patient_id::text, 'sha256'), 60, 3600
-    );
-    perform ihear.consume_rate_limit(
-      'report_request_global_hour', extensions.digest('ihear-report-request-global', 'sha256'), 600, 3600
-    );
-    perform ihear.consume_rate_limit(
-      'report_growth_patient_hour',
-      extensions.digest(p_workspace_id::text || ':' || p_patient_id::text, 'sha256'), 6, 3600
-    );
-    perform ihear.consume_rate_limit(
-      'report_growth_workspace_hour', extensions.digest(p_workspace_id::text, 'sha256'), 60, 3600
-    );
-    perform ihear.consume_rate_limit(
-      'report_growth_global_hour', extensions.digest('ihear-report-growth-global', 'sha256'), 200, 3600
-    );
-    perform pg_advisory_xact_lock(hashtextextended('ihear:sandbox:retained-capacity', 0));
+    if p_apply_request_limits then
+      perform ihear.consume_rate_limit(
+        'report_request_patient_hour',
+        extensions.digest(p_workspace_id::text || ':' || p_patient_id::text, 'sha256'), 60, 3600
+      );
+      perform ihear.consume_rate_limit(
+        'report_request_global_hour', extensions.digest('ihear-report-request-global', 'sha256'), 600, 3600
+      );
+      perform ihear.consume_rate_limit(
+        'report_growth_patient_hour',
+        extensions.digest(p_workspace_id::text || ':' || p_patient_id::text, 'sha256'), 6, 3600
+      );
+      perform ihear.consume_rate_limit(
+        'report_growth_workspace_hour', extensions.digest(p_workspace_id::text, 'sha256'), 60, 3600
+      );
+      perform ihear.consume_rate_limit(
+        'report_growth_global_hour', extensions.digest('ihear-report-growth-global', 'sha256'), 200, 3600
+      );
+    end if;
     select * into strict v_limits from ihear.sandbox_limits where singleton;
     select count(*) into v_count from ihear.jobs
     where kind = 'report' and status in ('queued', 'running', 'retry');
@@ -386,7 +542,6 @@ begin
   if not found then
     -- Normally the report and job are created in one transaction. This also keeps
     -- repair of a legacy orphan report behind the same global queue ceiling.
-    perform pg_advisory_xact_lock(hashtextextended('ihear:sandbox:retained-capacity', 0));
     select * into strict v_limits from ihear.sandbox_limits where singleton;
     select count(*) into v_count from ihear.jobs where status in ('queued', 'running', 'retry');
     if v_count >= v_limits.max_active_jobs_global then
@@ -397,6 +552,7 @@ begin
       p_workspace_id, p_patient_id, v_report.id, 'report', p_report_version,
       jsonb_build_object('reportId', v_report.id, 'inputRevision', v_report.input_revision)
     ) returning * into v_job;
+    v_enqueued := true;
   end if;
 
   if v_job.queue_message_id is null and v_job.status in ('queued', 'retry') then
@@ -406,19 +562,55 @@ begin
     update ihear.jobs set queue_message_id = v_message_id where id = v_job.id;
   end if;
 
-  return jsonb_build_object('status', v_report.status, 'reportId', v_report.id);
+  return jsonb_build_object(
+    'status', v_report.status, 'reportId', v_report.id, 'enqueued', v_enqueued
+  );
 end;
 $$;
 
+create or replace function ihear.ensure_report_job(
+  p_workspace_id uuid,
+  p_patient_id uuid,
+  p_report_version integer default 2
+)
+returns jsonb
+language sql
+set search_path = ''
+as $$
+  select ihear.ensure_report_job_internal(
+    p_workspace_id, p_patient_id, p_report_version, true
+  );
+$$;
+
+create function ihear.ensure_scheduled_report_job(
+  p_workspace_id uuid,
+  p_patient_id uuid,
+  p_report_version integer default 2
+)
+returns jsonb
+language sql
+set search_path = ''
+as $$
+  select ihear.ensure_report_job_internal(
+    p_workspace_id, p_patient_id, p_report_version, false
+  );
+$$;
+
+revoke all on function ihear.lock_sandbox_capacity() from public, anon, authenticated;
 revoke all on function ihear.enforce_sandbox_retained_capacity() from public, anon, authenticated;
 revoke all on function ihear.create_patient(uuid, text, jsonb, jsonb, date, text, text) from public, anon, authenticated;
 revoke all on function ihear.update_patient_profile(uuid, uuid, text, jsonb, jsonb, date, text, text) from public, anon, authenticated;
 revoke all on function ihear.admit_event_upload_request(bytea, uuid, uuid) from public, anon, authenticated;
 revoke all on function ihear.assert_event_admission(bytea, uuid, uuid) from public, anon, authenticated;
+revoke all on function ihear.ensure_report_job_internal(uuid, uuid, integer, boolean) from public, anon, authenticated;
 revoke all on function ihear.ensure_report_job(uuid, uuid, integer) from public, anon, authenticated;
+revoke all on function ihear.ensure_scheduled_report_job(uuid, uuid, integer) from public, anon, authenticated;
 
+grant execute on function ihear.lock_sandbox_capacity() to service_role;
 grant execute on function ihear.create_patient(uuid, text, jsonb, jsonb, date, text, text) to service_role;
 grant execute on function ihear.update_patient_profile(uuid, uuid, text, jsonb, jsonb, date, text, text) to service_role;
 grant execute on function ihear.admit_event_upload_request(bytea, uuid, uuid) to service_role;
 grant execute on function ihear.assert_event_admission(bytea, uuid, uuid) to service_role;
+grant execute on function ihear.ensure_report_job_internal(uuid, uuid, integer, boolean) to service_role;
 grant execute on function ihear.ensure_report_job(uuid, uuid, integer) to service_role;
+grant execute on function ihear.ensure_scheduled_report_job(uuid, uuid, integer) to service_role;

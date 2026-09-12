@@ -329,6 +329,16 @@ test("event upload admission executes before the multipart stream is read", () =
   assert.ok(bodyRead > admission);
 });
 
+test("pairing mutations acquire sandbox admission before row locks", () => {
+  const source = readFileSync(
+    new URL("../src/lib/server/pairing.ts", import.meta.url),
+    "utf8",
+  );
+  assert.equal(source.match(/select ihear\.lock_sandbox_capacity\(\)/g)?.length, 3);
+  const redeem = source.slice(source.indexOf("export async function redeemPairing"));
+  assert.ok(redeem.indexOf("lock_sandbox_capacity") < redeem.indexOf("for update of pt"));
+});
+
 test("the loopback proxy replaces client-supplied forwarding before IP hashing", () => {
   const config = readFileSync(
     new URL("../ops/monitor/nginx/ihear.conf.template", import.meta.url),

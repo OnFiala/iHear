@@ -23,6 +23,7 @@ export async function issuePairing(
   const token = randomPairingToken();
   const expiresAt = new Date(Date.now() + PAIRING_TTL_MS);
   await transaction(async (client) => {
+    await client.query("select ihear.lock_sandbox_capacity()");
     const patient = await client.query(
       "select 1 from ihear.patients where id = $1 and workspace_id = $2 for update",
       [patientId, workspaceId],
@@ -56,6 +57,7 @@ export async function revokePairing(
   patientId: string,
 ): Promise<void> {
   await transaction(async (client) => {
+    await client.query("select ihear.lock_sandbox_capacity()");
     const patient = await client.query(
       "select 1 from ihear.patients where id = $1 and workspace_id = $2 for update",
       [patientId, workspaceId],
@@ -103,6 +105,7 @@ export async function redeemPairing(
   const capability = randomCapability();
   const expiresAt = new Date(Date.now() + PATIENT_SESSION_TTL_MS);
   const patient = await transaction(async (client) => {
+    await client.query("select ihear.lock_sandbox_capacity()");
     const result = await client.query<Row>(
       `
       select pt.id as pairing_id, pt.workspace_id, pt.patient_id,
