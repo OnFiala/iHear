@@ -24,10 +24,11 @@ edge controls, capacity and deployment approval. Read-only account inspection
 confirmed both owner domains and the existing Cloudflare zone for `ofops.co`;
 `ihear.ofops.co` was initially proposed. The owner then explicitly requested this
 domain, rejected access for everyone, and approved Zero Trust Free with a maximum
-USD 5 cost. Owner-only Access and a dedicated tunnel/DNS route are now configured;
-the origin remains inactive pending a specifically requested credential-transfer
-confirmation from automatic approval review. This supersedes the initial no-login
-public-demo intent for the current deployment. It does not approve anonymous
+USD 5 cost. The owner subsequently explicitly confirmed the scoped tunnel
+credential transfer after the automatic-review hold. Owner-only Access, the
+dedicated tunnel/DNS route and isolated origin are now active; both new units are
+boot-enabled after live owner flow and disable-only rollback verification. This
+supersedes the initial no-login public-demo intent for the current deployment. It does not approve anonymous
 access, paid add-ons, or changes to sibling services.
 
 - Product name iHear; English-first application, documentation and reports.

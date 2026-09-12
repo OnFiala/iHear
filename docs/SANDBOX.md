@@ -37,14 +37,18 @@ remote mutation. Never disable host-key verification to repair a connection.
 | Dashboard | `ihear-monitor-dashboard.service`, unprivileged ihear-monitor | 127.0.0.1:9080 |
 | Collector | `ihear-monitor-collector.service`, root, triggered by timer | `/var/lib/ihear-monitor/metrics.sqlite` |
 | Private ingress | Tailscale Serve | app HTTPS 8446; owner dashboard HTTPS 9443 |
+| Domain web | `ihear-domain-web.service`, locked account ihear-domain | 127.0.0.1:3001; separate cache |
+| Domain proxy | nginx, exact iHear hostname | 127.0.0.1:8081 |
+| Domain ingress | `ihear-domain-tunnel.service`, systemd DynamicUser | outbound Cloudflare Tunnel; owner-only Access |
 
 The Linux Compose overlay connects the worker directly to the existing Supabase
 Docker network using container DNS. It does not require Docker Desktop's
 `host.docker.internal`. Docker's daemon defaults bind published ports to loopback;
 the launcher checks both that prerequisite and the actual resulting port bindings.
-UFW allows the two HTTPS ports only on `tailscale0`. No Funnel or public app
-deployment is used. Supabase Studio is accessible only through an explicit SSH
-port forward when needed.
+UFW allows the two HTTPS ports only on `tailscale0`. No Funnel or anonymous public app
+deployment is used. The additional owner-only custom-domain path is documented
+in [the domain operations runbook](../ops/domain/README.md). Supabase Studio is
+accessible only through an explicit SSH port forward when needed.
 
 The app proxy and dashboard accept only the exact tailnet owner login injected by
 Tailscale Serve. Direct loopback requests without that identity receive 403. The dashboard server
@@ -360,3 +364,16 @@ The QR fixture's first timeout is retained as an intermittent test limitation,
 not silently discarded. The current PDF's three pages (7,929 bytes) were inspected.
 Source/artifact identity, private ingress, monitoring and confined service limits
 pass. Existing security and physical-device limitations still apply.
+
+## Owner-only domain activation — 2026-09-12
+
+The domain operations source is `3387c92406c100f22e25f67a9357c4de1d06a18e`,
+installed separately under `/opt/ihear-domain`. The existing app checkout remains
+clean at `f3ab5a6fc5813f845ca44eef28f5e621eab907e3` with the same build and worker.
+The only existing artifact metadata change was BUILD_ID permissions 0664 to 0644.
+The private web was not restarted and all prior data hashes were preserved.
+Both new domain units are active and enabled at boot. Stopping just the connector
+closed the domain, preserved private service health and was successfully reversed.
+No host reboot or OS package upgrade was performed. See [STATUS.md](STATUS.md) for
+live owner/edge evidence and remaining verification limits; use the domain runbook
+for scoped disable/recovery without altering Tailscale, the database or worker.

@@ -1,12 +1,13 @@
 # Implementation status
 
 Updated 2026-09-12. **Clear Signal implementation and local verification: PASS.
-Private Linux activation: PASS. Browser coverage: PASS with one QR-fixture retry. Public application
+Private Linux activation: PASS. Owner-only custom domain activation: PASS.
+Browser coverage: PASS with one historical QR-fixture retry. Anonymous public
 release: NOT RUN.** The selected direction retains the original 3D glass artwork.
-Anonymous public application access remains disabled. Owner-only Cloudflare Access,
-a dedicated tunnel route and the exact DNS record are now configured, but the
-new origin process is not activated. No paid feature was enabled; interpretation
-API use remains intentionally disabled.
+The owner can use `https://ihear.ofops.co` through Cloudflare Access. The dedicated
+tunnel and isolated origin are active and enabled at boot. Anonymous application
+access remains disabled. No paid feature was enabled; interpretation API use
+remains intentionally disabled.
 
 The current candidate includes the patient Record/History split, compact clinician
 Moments/Profile review, accessible pairing/settings, and PDF template 3. Version 1/2
@@ -23,7 +24,7 @@ selectors after the UI reshaping; these were corrected without weakening behavio
 assertions. The final date/pagination refinements also passed narrow verification: two browser
 scenarios, timezone parser regression cases and a three-moment pagination fixture.
 
-## Owner-only custom domain — PARTIAL
+## Owner-only custom domain — active, 2026-09-12
 
 The owner approved `ihear.ofops.co` with access restricted to the owner and a
 maximum USD 5 cost. Zero Trust Free is active. The chosen Access Free, Tunnel and
@@ -38,27 +39,57 @@ Host header. A persisted Access application protects all paths with one verified
 owner email allow rule and no bypass policy. No wildcard, mail or sibling-tunnel
 setting was changed.
 
-Unauthenticated GET checks for landing, clinic, patient, pairing, API, static,
-manifest and service-worker routes redirect to Access. Unauthenticated POST and
-an invalid authorization cookie also redirect to Access; a validly formed CORS
-preflight is rejected with HTTP 403. The Python default user agent initially
-received error 1010 from browser integrity checks, which was not counted as
-Access proof. The owner's browser progressed through Cloudflare authentication
-to error 1033 because the connector is not running yet.
+After the initial automatic-review hold, the owner explicitly confirmed transfer
+of this tunnel credential. Operations source
+`3387c92406c100f22e25f67a9357c4de1d06a18e` was installed separately under
+`/opt/ihear-domain`; the application checkout and artifact remain frozen at the
+revision below. The credential is root-owned 0400 under a root-owned 0700 directory.
+Its temporary MacBook source copy was removed. The existing BUILD_ID file mode
+was tightened from 0664 to 0644 without changing its contents. No database
+migration, worker change or private web restart occurred.
 
-Source preparation adds an isolated domain web account/cache, a separate bounded
-nginx listener, a constrained connector and a root-only installer. The app remains
-on its existing frozen runtime revision; no database migration, worker change or
-private web restart is needed. Non-secret candidate files were staged on the
-verified host but not installed. Automatic approval review blocked transfer of
-the newly created tunnel credential to the existing iHear host, requiring explicit
-confirmation of that credential transfer. The token remains protected on the
-MacBook. The domain is **not yet a working application**.
+Acceptance evidence:
 
-Pending evidence: installed Linux validation/confinement, exact live connector
-configuration, owner application flow, domain pairing/report behavior, rejection
-of another authenticated identity, and disable-only rollback. See the
-[domain operations runbook](../ops/domain/README.md). No activation PASS is claimed.
+- Source preparation passed 60 focused tests; the independent source review passed
+  its 24-test subset. Installed systemd validation, nginx validation and local
+  preflight passed. Source checks are distinct from the live checks below.
+- Independent runtime review verified installed hashes, separate locked web UID,
+  no supplementary groups, read-only source, separate cache, process limits,
+  loopback-only listeners and protected credential metadata. Root additionally
+  verified the connector's actual `/config`: exactly one application route,
+  required Access with the exact audience/team and a catch-all HTTP 404.
+- The owner browser loaded the actual landing page and original artwork, created
+  one labelled synthetic profile, generated and redeemed pairing on this exact
+  domain, opened the patient interface, and generated/downloaded a real 5,198-byte
+  PDF. The empty profile's report contains no invented observations. This run did
+  not record audio or use the microphone.
+- Eleven anonymous, invalid-cookie/JWT and CORS-preflight checks rejected access
+  across application, API and static paths; they passed again after connector
+  recovery. A Python default-user-agent error 1010 was excluded from Access proof.
+  A second authenticated non-owner identity and a direct connector-level
+  invalid-JWT request were not tested.
+- Disable-only rollback stopped just the new connector: the owner received 1033,
+  while the original private origin remained healthy. Restarting only that
+  connector restored the owner profile and landing page. Both new units are
+  active and boot-enabled. A host reboot or power-loss test was not repeated.
+- All 37 pre-existing patient/event/analysis/report rows retained their hashes.
+  The synthetic profile and report add two rows: seven profiles, fourteen events
+  and analyses, four reports. Private configurations, web PID and worker image
+  remained unchanged.
+
+The initial verification pairing was revoked during cleanup. After the owner
+reported pairing trouble, their actual in-app browser showed the patient scanner
+page with camera access unavailable. A fresh QR was visibly generated in the
+clinician profile; opening its link and confirming the synthetic profile paired
+that in-app browser successfully. This replacement pairing remains active for
+owner testing. Microphone permission was not granted by the operator. The patient
+page consumes a clinician-issued QR/code; it does not generate one. Access still
+requires the approved owner identity, including on a phone or other browser.
+
+The domain has its own host-only workspace cookie. Historical workspaces remain
+on the original private origin; cookies/data were not remapped. Physical iOS
+validation and anonymous public release remain separate milestones. See the
+[domain operations runbook](../ops/domain/README.md).
 
 ## Current Clear Signal deployment
 

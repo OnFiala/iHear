@@ -86,7 +86,7 @@ Telemetry contains only the minimized fields documented in
 SQL parameters, private paths, URLs or raw exception objects into logs. Logs and
 metrics have bounded retention; operational journals remain private.
 
-## Owner-only custom domain — origin activation pending
+## Owner-only custom domain — active
 
 On 2026-09-12 the owner approved `ihear.ofops.co` with owner-only access and a
 USD 5 maximum cost. Zero Trust Free is active. Access protects the exact hostname,
@@ -95,11 +95,14 @@ The dedicated named tunnel route and proxied CNAME are persisted. Its sole
 application route targets loopback 8081 with Protect with Access required and the
 exact Access audience/team. No wildcard, mail or sibling-tunnel settings changed.
 
-The connector and separate domain web process are not running. Automatic approval
-review rejected credential transfer to the existing iHear server; the protected
-credential remains on the authoring MacBook. Current source preparation and edge
-observations are documented in [STATUS.md](STATUS.md). DNS and a login gate are
-not proof of an operational application.
+The owner explicitly approved the scoped credential transfer after the initial
+automatic-review hold. The connector and separate domain web process are active
+and boot-enabled. Exact installed confinement, live connector audience/team,
+owner pairing/PDF behavior, anonymous rejection and disable-only rollback were
+verified. The credential remains only in protected runtime custody; the temporary
+MacBook source was removed. [STATUS.md](STATUS.md) separates source, independent
+runtime, browser and unrun evidence. No second authenticated non-owner account,
+direct connector-level invalid JWT or physical phone/reboot test was exercised.
 
 The new web process uses the same preserved database and frozen application
 artifact under a separate locked UID, read-only source and separate cache. This
