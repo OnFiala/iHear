@@ -22,7 +22,13 @@ source publication does not authorize public application activation. A protected
 public domain through an outbound tunnel is a proposal pending public isolation,
 edge controls, capacity and deployment approval. Read-only account inspection
 confirmed both owner domains and the existing Cloudflare zone for `ofops.co`;
-`ihear.ofops.co` is the proposed public hostname. No DNS or tunnel was changed.
+`ihear.ofops.co` was initially proposed. The owner then explicitly requested this
+domain, rejected access for everyone, and approved Zero Trust Free with a maximum
+USD 5 cost. Owner-only Access and a dedicated tunnel/DNS route are now configured;
+the origin remains inactive pending a specifically requested credential-transfer
+confirmation from automatic approval review. This supersedes the initial no-login
+public-demo intent for the current deployment. It does not approve anonymous
+access, paid add-ons, or changes to sibling services.
 
 - Product name iHear; English-first application, documentation and reports.
 - Patient PWA and clinician web interface in one application. Public demo without a login screen.

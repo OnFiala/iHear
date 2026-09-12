@@ -3,8 +3,10 @@
 Updated 2026-09-12. **Clear Signal implementation and local verification: PASS.
 Private Linux activation: PASS. Browser coverage: PASS with one QR-fixture retry. Public application
 release: NOT RUN.** The selected direction retains the original 3D glass artwork.
-No public application or paid cloud resource is provisioned; interpretation API
-use remains intentionally disabled.
+Anonymous public application access remains disabled. Owner-only Cloudflare Access,
+a dedicated tunnel route and the exact DNS record are now configured, but the
+new origin process is not activated. No paid feature was enabled; interpretation
+API use remains intentionally disabled.
 
 The current candidate includes the patient Record/History split, compact clinician
 Moments/Profile review, accessible pairing/settings, and PDF template 3. Version 1/2
@@ -20,6 +22,43 @@ passed separately on the same visual build. Initial runs exposed two stale test
 selectors after the UI reshaping; these were corrected without weakening behavior
 assertions. The final date/pagination refinements also passed narrow verification: two browser
 scenarios, timezone parser regression cases and a three-moment pagination fixture.
+
+## Owner-only custom domain — PARTIAL
+
+The owner approved `ihear.ofops.co` with access restricted to the owner and a
+maximum USD 5 cost. Zero Trust Free is active. The chosen Access Free, Tunnel and
+Free DNS path costs USD 0 without enabling paid add-ons or usage-billed products.
+No native Cloudflare hard dollar spending cap was verified or configured; budget
+alerts do not stop billing. This does not cap unrelated existing account services.
+
+The previous wildcard DNS error 1000 is resolved by an explicit proxied CNAME
+for this hostname. Its dedicated tunnel routes only to loopback port 8081 with
+Protect with Access enabled, the exact application audience/team and a fixed
+Host header. A persisted Access application protects all paths with one verified
+owner email allow rule and no bypass policy. No wildcard, mail or sibling-tunnel
+setting was changed.
+
+Unauthenticated GET checks for landing, clinic, patient, pairing, API, static,
+manifest and service-worker routes redirect to Access. Unauthenticated POST and
+an invalid authorization cookie also redirect to Access; a validly formed CORS
+preflight is rejected with HTTP 403. The Python default user agent initially
+received error 1010 from browser integrity checks, which was not counted as
+Access proof. The owner's browser progressed through Cloudflare authentication
+to error 1033 because the connector is not running yet.
+
+Source preparation adds an isolated domain web account/cache, a separate bounded
+nginx listener, a constrained connector and a root-only installer. The app remains
+on its existing frozen runtime revision; no database migration, worker change or
+private web restart is needed. Non-secret candidate files were staged on the
+verified host but not installed. Automatic approval review blocked transfer of
+the newly created tunnel credential to the existing iHear host, requiring explicit
+confirmation of that credential transfer. The token remains protected on the
+MacBook. The domain is **not yet a working application**.
+
+Pending evidence: installed Linux validation/confinement, exact live connector
+configuration, owner application flow, domain pairing/report behavior, rejection
+of another authenticated identity, and disable-only rollback. See the
+[domain operations runbook](../ops/domain/README.md). No activation PASS is claimed.
 
 ## Current Clear Signal deployment
 

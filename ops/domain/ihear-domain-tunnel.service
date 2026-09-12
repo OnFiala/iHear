@@ -1,0 +1,47 @@
+[Unit]
+Description=iHear owner-only Cloudflare Tunnel connector
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+LoadCredential=tunnel.token:/etc/ihear-domain/tunnel.token
+Environment=HOME=/nonexistent
+UMask=0077
+LogNamespace=ihear-domain
+# --token-file requires cloudflared 2025.4.0 or newer. The token never enters
+# an environment variable, command line value, journal, or source checkout.
+ExecStart=/opt/ihear-domain/cloudflared tunnel --no-autoupdate --loglevel warn --metrics 127.0.0.1:0 run --token-file %d/tunnel.token
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectProc=invisible
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=~@mount @module @raw-io @reboot @swap @privileged
+
+MemoryMax=256M
+CPUQuota=50%
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

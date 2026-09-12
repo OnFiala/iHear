@@ -86,14 +86,35 @@ Telemetry contains only the minimized fields documented in
 SQL parameters, private paths, URLs or raw exception objects into logs. Logs and
 metrics have bounded retention; operational journals remain private.
 
-## Proposed public entry point — not activated
+## Owner-only custom domain — origin activation pending
 
-Read-only account inspection on 2026-09-12 confirmed that the owner holds
-`ofops.co` and `ofops.online` at Active24, both with displayed expiry 2027-02-10.
-`ofops.co` is already active on Cloudflare Free. `ihear.ofops.co` has no explicit
-DNS record and currently inherits wildcard records. It is the proposed app
-hostname; no DNS record, existing tunnel or mail setting was changed. Account
-access is verified, but it does not approve public activation or paid features.
+On 2026-09-12 the owner approved `ihear.ofops.co` with owner-only access and a
+USD 5 maximum cost. Zero Trust Free is active. Access protects the exact hostname,
+all paths, with one exact verified owner email allow policy and no bypass rules.
+The dedicated named tunnel route and proxied CNAME are persisted. Its sole
+application route targets loopback 8081 with Protect with Access required and the
+exact Access audience/team. No wildcard, mail or sibling-tunnel settings changed.
+
+The connector and separate domain web process are not running. Automatic approval
+review rejected credential transfer to the existing iHear server; the protected
+credential remains on the authoring MacBook. Current source preparation and edge
+observations are documented in [STATUS.md](STATUS.md). DNS and a login gate are
+not proof of an operational application.
+
+The new web process uses the same preserved database and frozen application
+artifact under a separate locked UID, read-only source and separate cache. This
+preserves records; it does not isolate the database from a compromised authorized
+web process. Existing host-only workspace cookies are not copied or remapped.
+The domain creates a normal new workspace; historical workspaces remain on the
+private route. Access covers patient/pairing/API/static/service-worker routes too.
+Cloudflare terminates HTTPS and is part of the new traffic trust boundary.
+
+Only Access Free, Tunnel and Free DNS were selected, without usage-billed products
+or paid add-ons. No native hard USD 5 cap was verified or configured. Budget alerts
+are notifications, not an enforced billing stop; unrelated account products are
+outside this service decision.
+
+## Anonymous public demo — not authorized
 
 For a future public demo on this host, use an owner-approved public domain through
 Cloudflare's protected edge and an outbound Cloudflare Tunnel. No DNS A/AAAA
