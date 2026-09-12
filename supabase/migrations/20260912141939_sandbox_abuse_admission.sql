@@ -37,6 +37,29 @@ as $$
   select pg_advisory_xact_lock(hashtextextended('ihear:sandbox:retained-capacity', 0));
 $$;
 
+create or replace function ihear.create_workspace_with_capability(
+  p_ip_hash bytea,
+  p_owner_token_hash bytea
+)
+returns uuid
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_workspace_id uuid;
+begin
+  perform ihear.lock_sandbox_capacity();
+  perform ihear.consume_rate_limit('workspace_ip_hour', p_ip_hash, 10, 3600);
+  perform ihear.consume_rate_limit(
+    'workspace_global_hour', extensions.digest('ihear-workspace-global', 'sha256'), 200, 3600
+  );
+  insert into ihear.workspaces default values returning id into v_workspace_id;
+  insert into ihear.capabilities (workspace_id, kind, token_hash)
+  values (v_workspace_id, 'owner', p_owner_token_hash);
+  return v_workspace_id;
+end;
+$$;
+
 create function ihear.enforce_sandbox_retained_capacity()
 returns trigger
 language plpgsql
@@ -348,6 +371,7 @@ language plpgsql
 set search_path = ''
 as $$
 begin
+  perform ihear.lock_sandbox_capacity();
   if not exists (select 1 from ihear.workspaces where id = p_workspace_id) then
     raise exception 'workspace_not_found' using errcode = 'P0002';
   end if;
@@ -597,6 +621,7 @@ as $$
 $$;
 
 revoke all on function ihear.lock_sandbox_capacity() from public, anon, authenticated;
+revoke all on function ihear.create_workspace_with_capability(bytea, bytea) from public, anon, authenticated;
 revoke all on function ihear.enforce_sandbox_retained_capacity() from public, anon, authenticated;
 revoke all on function ihear.create_patient(uuid, text, jsonb, jsonb, date, text, text) from public, anon, authenticated;
 revoke all on function ihear.update_patient_profile(uuid, uuid, text, jsonb, jsonb, date, text, text) from public, anon, authenticated;
@@ -607,6 +632,7 @@ revoke all on function ihear.ensure_report_job(uuid, uuid, integer) from public,
 revoke all on function ihear.ensure_scheduled_report_job(uuid, uuid, integer) from public, anon, authenticated;
 
 grant execute on function ihear.lock_sandbox_capacity() to service_role;
+grant execute on function ihear.create_workspace_with_capability(bytea, bytea) to service_role;
 grant execute on function ihear.create_patient(uuid, text, jsonb, jsonb, date, text, text) to service_role;
 grant execute on function ihear.update_patient_profile(uuid, uuid, text, jsonb, jsonb, date, text, text) to service_role;
 grant execute on function ihear.admit_event_upload_request(bytea, uuid, uuid) to service_role;

@@ -834,3 +834,102 @@ test("report admission takes the global capacity lock before the patient row", a
     await Promise.all([setup.end(), holder.end(), reporter.end(), capability.end()]);
   }
 });
+
+test("workspace and patient creators wait on capacity before expired-counter cleanup", async () => {
+  const setup = new pg.Client({ connectionString: DATABASE_URL });
+  const holder = new pg.Client({ connectionString: DATABASE_URL });
+  const creator = new pg.Client({ connectionString: DATABASE_URL });
+  const counterReader = new pg.Client({ connectionString: DATABASE_URL });
+  await Promise.all([setup.connect(), holder.connect(), creator.connect(), counterReader.connect()]);
+  const hash = (value: string) => createHash("sha256").update(value).digest();
+  const seed = randomUUID();
+  let patientWorkspaceId: string | undefined;
+
+  async function verifyCreator(
+    label: string,
+    query: string,
+    parameters: unknown[],
+  ): Promise<void> {
+    const scope = `expired-lock-order-${label}-${seed}`;
+    const subjectHash = hash(`${seed}:${label}:expired`);
+    await setup.query(
+      `insert into ihear.rate_limit_counters(
+         scope, subject_hash, window_start, request_count
+       ) values($1, $2, now() - interval '8 days', 1)`,
+      [scope, subjectHash],
+    );
+    const creatorPid = Number(
+      (await creator.query<{ pid: number }>("select pg_backend_pid() as pid")).rows[0].pid,
+    );
+    let creatorPromise: Promise<QueryResult<Record<string, unknown>>> | undefined;
+    try {
+      await Promise.all([holder.query("begin"), creator.query("begin"), counterReader.query("begin")]);
+      await holder.query("select ihear.lock_sandbox_capacity()");
+      await creator.query("set local statement_timeout = '5s'");
+      creatorPromise = creator.query<Record<string, unknown>>(query, parameters);
+
+      let waitsForCapacity = false;
+      for (let attempt = 0; attempt < 40 && !waitsForCapacity; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        const locks = await setup.query<{ waiting: boolean }>(
+          `select exists(
+             select 1 from pg_locks
+             where pid = $1 and locktype = 'advisory' and not granted
+           ) as waiting`,
+          [creatorPid],
+        );
+        waitsForCapacity = locks.rows[0].waiting;
+      }
+      assert.equal(waitsForCapacity, true, `${label} did not wait for capacity first`);
+
+      await counterReader.query("set local lock_timeout = '200ms'");
+      const expired = await counterReader.query(
+        `select 1 from ihear.rate_limit_counters
+         where scope = $1 and subject_hash = $2 for update`,
+        [scope, subjectHash],
+      );
+      assert.equal(expired.rowCount, 1);
+      await counterReader.query("rollback");
+      await holder.query("rollback");
+      await creatorPromise;
+      await creator.query("rollback");
+    } finally {
+      await Promise.allSettled([
+        holder.query("rollback"),
+        creator.query("rollback"),
+        counterReader.query("rollback"),
+      ]);
+      if (creatorPromise) await Promise.allSettled([creatorPromise]);
+      await setup.query(
+        "delete from ihear.rate_limit_counters where scope = $1 and subject_hash = $2",
+        [scope, subjectHash],
+      );
+    }
+  }
+
+  try {
+    await verifyCreator(
+      "workspace",
+      "select ihear.create_workspace_with_capability($1, $2)",
+      [hash(`${seed}:workspace-ip`), hash(`${seed}:workspace-owner`)],
+    );
+    const patientWorkspace = await setup.query<{ id: string }>(
+      "insert into ihear.workspaces default values returning id",
+    );
+    patientWorkspaceId = patientWorkspace.rows[0].id;
+    await verifyCreator(
+      "patient",
+      `select * from ihear.create_patient(
+        $1, 'Creator Lock Order',
+        '{"frequencies":[500],"left":[20],"right":[25]}'::jsonb,
+        '{"side":"none","left":null,"right":null}'::jsonb,
+        '2026-10-01', '', 'Europe/Prague'
+      )`,
+      [patientWorkspaceId],
+    );
+  } finally {
+    if (patientWorkspaceId)
+      await setup.query("delete from ihear.workspaces where id = $1", [patientWorkspaceId]);
+    await Promise.all([setup.end(), holder.end(), creator.end(), counterReader.end()]);
+  }
+});
