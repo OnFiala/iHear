@@ -115,6 +115,44 @@ services and verify source/artifact/runtime parity. Do not whole-tree-sync the
 MacBook directory. Keep ignored runtime state in place. A published source commit
 does not by itself prove that the running process uses it.
 
+## Report-template update and rollback gate
+
+A template switch must not leave an old worker consuming new report jobs (or a
+rollback worker consuming unfinished newer reports). Before checkout/build:
+
+1. Verify host binding, clean HEAD, service owner and protected artifact manifest.
+   Save a mode-0600 database dump, current environment and artifact manifest in the
+   ignored runtime backup directory. Retain existing storage objects and volumes.
+2. Stop only `ihear-web.service` to close new user admission. Keep the current
+   worker running until all jobs in `queued`, `retry` or `running` and all reports
+   in `queued` or `generating` have finished. Do not reset quotas or alter job rows.
+3. Stop the worker container gracefully, leaving Supabase up. Recheck both counts
+   after the worker stops, because its scheduler is also a producer. If either is
+   nonzero, restart the old worker, drain and repeat before changing source.
+4. Fetch/check out the reviewed commit and apply its additive migration during
+   `scripts/linux.py prepare`. Build artifacts from that clean commit and align
+   `REPORT_VERSION`. Version 3 preparation enforces 3 in both web and worker.
+5. Activate the prepared worker with `scripts/linux.py start`, then start the web
+   service. Existing systemd/nginx units are reused when unchanged. Verify the
+   manifest, prepared/running image identity, Next build and preserved records.
+6. Verify real new results and a current-version PDF through the private origin,
+   unchanged API-off state, empty work queue and removal of successful raw audio.
+
+Rollback uses the same admission/drain/stop/recheck gate in the other direction.
+Use a reviewed forward rollback commit: restore the old web/worker implementation
+while retaining every applied migration file, and append an additive migration
+restoring report defaults to 2. Restore the saved v2 environment and rebuild with
+the canonical launcher. A literal checkout of the old commit is insufficient:
+Supabase migration reconciliation rejects applied versions absent from source.
+Never edit migration history to bypass that check. Historical ready PDFs of all
+versions remain retained. The prepared, unactivated forward rollback is local branch
+`rollback/clear-signal-v2`, commit `f930658`. Its default changes were verified in a
+transaction and rolled back; live activation has not been exercised. A later
+return to v3 must append a new default-v3 migration.
+
+A failed prepare/start leaves admission closed until the prepared
+revision or verified rollback is ready. Never use a database reset as rollback.
+
 ## Always-on policy
 
 `/etc/systemd/logind.conf.d/60-ihear-server.conf` ignores lid switches on battery,

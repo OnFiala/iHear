@@ -7,12 +7,12 @@ This document is the exact backend contract for the local milestone. The migrati
 - `AUDIO_BUCKET=ihear-audio`, private, WAV only, 2,202,000-byte object limit.
 - `REPORT_BUCKET=ihear-reports`, private, PDF only, 10 MB Storage limit; worker generation and web delivery enforce the tighter 4,000,000-byte limit.
 - `QUEUE_NAME=ihear_jobs`, a durable logged pgmq queue.
-- `PIPELINE_VERSION=1`, `REPORT_VERSION=2`.
+- `PIPELINE_VERSION=1`, `REPORT_VERSION=3`.
 - Audio object key: `<workspace_id>/<patient_id>/<event_id>.wav`.
 - Report object key: `<workspace_id>/<patient_id>/<report_id>/<attempt_id>.pdf`.
-- Queue payload: `{"jobId":"<uuid>","kind":"event_analysis|report","version":number}`; event jobs use pipeline version 1, report jobs use template version 2. The database row, not the queue message, is authoritative.
+- Queue payload: `{"jobId":"<uuid>","kind":"event_analysis|report","version":number}`; event jobs use pipeline version 1, new report jobs use template version 3. The database row, not the queue message, is authoritative.
 
-The server reads these five values from environment variables and defaults to the listed local values. It rejects a runtime override that does not match the applied migration, preventing the application and worker from silently addressing different infrastructure. A future rename/version bump therefore requires a migration and runtime configuration change together.
+The server reads these five values from environment variables and defaults to the listed local values. It rejects a runtime override that does not match the committed runtime contract. The prepare command applies its matching migration; startup constants alone do not inspect live database schema identity. A future rename/version bump therefore requires a migration and runtime configuration change together.
 
 The Next.js direct Postgres pool reads `DATABASE_POOL_MAX`, defaults to 3 connections per process, rejects values outside 1–10, and uses a 10-second connection timeout. Worker database connections are configured separately.
 
@@ -76,11 +76,11 @@ No interpretation is attempted when deterministic evidence is ambiguous. That st
 
 ### `ihear.reports`
 
-`id uuid primary key`, `workspace_id uuid not null`, `patient_id uuid not null`, `input_revision bigint`, `report_version integer default 2`, `status text` (`queued`, `generating`, `ready`, `failed`), `object_path text null unique`, `error text null`, `created_at timestamptz`, `updated_at timestamptz`, unique `(patient_id, input_revision, report_version)`.
+`id uuid primary key`, `workspace_id uuid not null`, `patient_id uuid not null`, `input_revision bigint`, `report_version integer default 3`, `status text` (`queued`, `generating`, `ready`, `failed`), `object_path text null unique`, `error text null`, `created_at timestamptz`, `updated_at timestamptz`, unique `(patient_id, input_revision, report_version)`.
 
 POST creates at most one report and one job for the current `(patient_id, report_revision, REPORT_VERSION)`. GET only reads status. The download API streams the private object after owner authorization.
 
-Template version 2 adds explicit illustrative-use text, clinic-local capture timestamps and an honest empty-chart state. Version 1 records remain historical; they are never reused as a current version 2 report. If prior reports exist but the current revision/version does not, the UI receives `outdated` and offers updated preparation. An already-ready old report can still reconcile its unfinished job without being regenerated or downgraded.
+Template version 3 adds the Clear Signal chronological layout while retaining the version 2 evidence boundaries, clinic-local timestamps and honest empty-chart state. Version 1/2 records remain historical; they are never reused as a current version 3 report. If prior reports exist but the current revision/version does not, the UI receives `outdated` and offers updated preparation. An already-ready old report can still reconcile its unfinished job without being regenerated or downgraded.
 
 ### `ihear.jobs`
 
@@ -173,3 +173,25 @@ RLS is enabled and forced on every `ihear` table as defense in depth, with no br
 On 2026-09-11, the CLI-named migrations applied to the local Supabase stack without schema errors. Rollback-only Postgres integration tests exercised tenant foreign-key denial, event idempotency and single enqueue, exclusive claim/lease renewal, expired-lease rejection, DSP/interpretation persistence, audio deletion marking, full-text search, global cross-workspace budget enforcement, per-patient event limits, overage settlement/freeze, stale-report rejection, report enqueue, and direct `anon` plus `authenticated` schema denial. Supabase database lint and security/performance advisors returned no issues.
 
 A separate live HTTP check loaded the local public key only in process memory and used an existing private report object. Anonymous database select and insert were denied; anonymous Storage list did not reveal the object; upload and direct download were denied. No probe write succeeded and no private payload or key was printed.
+
+## Report template 3 compatibility
+
+Migration `20260912161759_clear_signal_report_template_v3.sql` changes only the
+report table default and the two public SQL wrapper defaults to 3. It retains
+function identities, grants, version uniqueness, locks and admission enforcement.
+No existing report row, object, capability, event or API ledger entry is rewritten.
+
+| Producer/consumer | Compatibility |
+| --- | --- |
+| New web/worker | Requires REPORT_VERSION=3; pipeline remains 1 |
+| Omitted SQL report version | Enqueues/reuses template 3 |
+| Explicit SQL version 1/2 | Historical identity remains valid; never reused as 3 |
+| Ready historical PDF | Remains downloadable by its authorized report ID |
+| Unfinished old report job | Must drain before switching worker versions |
+| Rollback to v2 source | Stop admission, drain v3, stop worker; activate a forward rollback commit retaining migration history, with v2 environment/artifacts |
+
+The release must not run mixed report producers/consumers. An unsupported pending
+report deliberately fails instead of rendering bytes under a false template number.
+See SANDBOX.md for the quiesce/recheck procedure. Rollback-only integration tests
+prove omitted v3 defaults, explicit v1/v2 coexistence, idempotent v3 scheduling,
+version separation and unchanged anonymous-access denial.

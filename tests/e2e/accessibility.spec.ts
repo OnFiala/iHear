@@ -51,7 +51,7 @@ test("English public routes pass automated WCAG checks and keyboard navigation",
     await page.keyboard.press("Enter");
     await expect(
       page.getByRole("heading", {
-        name: "This link cannot connect a profile.",
+        name: "Pairing unavailable",
       }),
     ).toBeVisible();
   } finally {

@@ -55,7 +55,7 @@ A separate reviewer inspected backend authority, costs, data custody and worker 
 10. A missing explicit illustrative PDF label and a fallback numeric bar when no RMS measurement existed.
 11. Report template version routing, preserved ready historical reports and advance scheduling in clinic-local time.
 
-The final report template is version 2. It shows unavailable measurements honestly, displays captured times in the clinic timezone, and begins scheduled preparation at 08:00 one clinic-local calendar day before follow-up. A new result invalidating a requested report produces a visible outdated notice rather than silently offering a stale PDF.
+The current report template is version 3 (Clear Signal); version 2 evidence below is historical. It shows unavailable measurements honestly, displays captured times in the clinic timezone, and begins scheduled preparation at 08:00 one clinic-local calendar day before follow-up. A new result invalidating a requested report produces a visible outdated notice rather than silently offering a stale PDF.
 
 The final review disposition and remaining limitations are recorded in STATUS.md. Static review, local enforcement and live provider evidence are distinct.
 

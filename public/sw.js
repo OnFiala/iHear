@@ -1,5 +1,5 @@
 /* Only cache public shells and static assets. APIs, pairing links and recordings never enter Cache Storage. */
-const CACHE = "ihear-shell-v2";
+const CACHE = "ihear-shell-v3";
 const SHELL = [
   "/app",
   "/app/pair",

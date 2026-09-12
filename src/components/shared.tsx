@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
-  ArrowUpRight,
   AudioLines,
   Check,
   CircleAlert,
@@ -13,35 +13,38 @@ import { dateLabel } from "@/lib/client/api";
 export function Brand() {
   return (
     <Link href="/" className="brand" aria-label="iHear home">
-      <span className="brand-icon">
-        <AudioLines size={24} strokeWidth={1.6} />
-      </span>
-      iHear<span className="brand-dot">.</span>
+      iHear
     </Link>
   );
 }
-export function Header({ patient = false }: { patient?: boolean }) {
+export function Header({ patient = false, clinic = false, actions }: {
+  patient?: boolean;
+  clinic?: boolean;
+  actions?: ReactNode;
+}) {
   return (
-    <header className="site-header">
+    <header className={`site-header${patient ? " patient-header" : clinic ? " clinic-header" : ""}`}>
       <Brand />
       <nav aria-label="Main navigation">
-        {patient ? (
+        {actions ?? (patient ? (
           <Link href="/app/pair" className="quiet-link">
-            Pair a profile
+            Pair profile
           </Link>
+        ) : clinic ? (
+          <>
+            <Link href="/clinic" className="quiet-link">Patients</Link>
+            <Link href="/app" className="quiet-link">Patient app</Link>
+          </>
         ) : (
           <>
-            <Link href="/#how-it-works" className="desktop-link">
-              How it works
-            </Link>
             <Link href="/app" className="quiet-link">
               Patient app
             </Link>
-            <Link href="/clinic" className="button small">
-              Open clinician demo <ArrowUpRight size={17} />
+            <Link href="/clinic" className="quiet-link">
+              Clinician demo
             </Link>
           </>
-        )}
+        ))}
       </nav>
     </header>
   );
@@ -49,10 +52,8 @@ export function Header({ patient = false }: { patient?: boolean }) {
 export function Footer() {
   return (
     <footer className="site-footer">
-      <span>iHear · A little more understanding.</span>
-      <span>
-        Illustrative demo. Clinical interpretation stays with your clinician.
-      </span>
+      <span>iHear</span>
+      <span>Illustrative demo · Clinical interpretation belongs to your clinician.</span>
     </footer>
   );
 }
@@ -64,7 +65,7 @@ export function ErrorBox({ message }: { message: string }) {
     </div>
   );
 }
-export function Loading({ label = "Loading your space…" }: { label?: string }) {
+export function Loading({ label = "Loading…" }: { label?: string }) {
   return (
     <div className="loading" role="status">
       <LoaderCircle className="spin" size={24} />
@@ -74,6 +75,11 @@ export function Loading({ label = "Loading your space…" }: { label?: string })
 }
 export function Status({ value }: { value: string }) {
   const labels: Record<string, string> = {
+    ready: "Saved",
+    processing: "Processing",
+    uploading: "Uploading",
+    failed: "Failed",
+    queued: "Queued",
     held_budget: "budget paused",
     held_ambiguity: "interpretation paused",
   };
@@ -119,8 +125,8 @@ export function EventList({
                 : "I don’t understand"}
             </strong>
             <span>
-              {event.difficulty || "A positive listening moment"} ·{" "}
               {dateLabel(event.capturedAt)}
+              {event.difficulty ? ` · ${event.difficulty}` : ""}
             </span>
           </span>
           <Status value={event.status} />
@@ -205,7 +211,7 @@ export function Audiogram({ data }: { data: ProfileInput["audiogram"] }) {
       <figcaption>
         <span>× Left ear</span>
         <span>○ Right ear</span>
-        <span>Synthetic, entered by clinician</span>
+        <span>Clinician-entered demo data</span>
       </figcaption>
     </figure>
   );
@@ -238,8 +244,7 @@ export function AcousticResult({ analysis }: { analysis: Analysis }) {
       </div>
       <h4>Relative spectral energy</h4>
       <p className="caption">
-        Calculated from this phone sample. This is not calibrated sound pressure
-        or hearing level.
+        Phone sample; not calibrated sound pressure or hearing level.
       </p>
       <div
         className="band-chart"

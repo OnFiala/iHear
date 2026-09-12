@@ -15,6 +15,7 @@ def _required(monkeypatch: pytest.MonkeyPatch) -> None:
         ("ASTRA_MODEL", "another-model"),
         ("ASTRA_REASONING_EFFORT", "high"),
         ("WORKER_CONCURRENCY", "2"),
+        ("REPORT_VERSION", "2"),
     ],
 )
 def test_fixed_runtime_contract_rejects_misleading_overrides(
@@ -33,4 +34,4 @@ def test_fixed_runtime_contract_accepts_documented_values(monkeypatch: pytest.Mo
     monkeypatch.setenv("WORKER_CONCURRENCY", "1")
     settings = Settings.from_env()
     assert settings.worker_id
-    assert settings.report_version == 2
+    assert settings.report_version == 3

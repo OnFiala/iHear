@@ -5,13 +5,12 @@ import {
   ArrowLeft,
   ArrowRight,
   AudioLines,
-  CalendarDays,
   Check,
   ChevronRight,
   History,
   Mic,
-  MicOff,
   ScanLine,
+  Settings,
   ShieldCheck,
   WifiOff,
 } from "lucide-react";
@@ -46,9 +45,11 @@ export function PatientHome() {
     [difficulty, setDifficulty] = useState(""),
     [environment, setEnvironment] = useState(""),
     [recent, setRecent] = useState(false),
+    [aboutOpen, setAboutOpen] = useState(false),
     [offline, setOffline] = useState(false);
   const mic = useRef<Microphone | null>(null),
     recordingLock = useRef(false),
+    about = useRef<HTMLDetailsElement | null>(null),
     alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -208,13 +209,13 @@ export function PatientHome() {
         setEnvironment("");
         setMessage("Saved on this device. Two quick questions.");
       } else {
-        setMessage("Moment saved on this device. Thank you.");
+        setMessage("Saved on this device.");
         await flushPending(patient.id, () => {
           void pendingFor(patient.id).then(setPending);
         });
         if ((await pendingFor(patient.id)).every((e) => e.id !== id))
           setMessage(
-            "Moment received. Your clinician will see it after processing.",
+            "Moment saved.",
           );
       }
     } catch (e) {
@@ -241,8 +242,62 @@ export function PatientHome() {
       void pendingFor(patient.id).then(setPending);
     });
     if ((await pendingFor(patient.id)).every((e) => e.id !== event.id))
-      setMessage("Moment received. Thank you for sharing what happened.");
+      setMessage("Moment saved.");
   }
+  const savedMoments = [
+    ...events.map((event) => event.capturedAt),
+    ...pending
+      .filter((event) => event.state === "saved locally")
+      .map((event) => event.capturedAt),
+  ];
+  const lastSavedAt = savedMoments.reduce(
+    (latest, capturedAt) =>
+      !latest || new Date(capturedAt).getTime() > new Date(latest).getTime()
+        ? capturedAt
+        : latest,
+    "",
+  );
+  function toggleAbout() {
+    const opening = !aboutOpen;
+    setAboutOpen(opening);
+    if (opening)
+      window.requestAnimationFrame(() => {
+        about.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        about.current?.querySelector("summary")?.focus({ preventScroll: true });
+      });
+  }
+  const microphoneControl = (
+    <div className={"patient-mic-control " + (ready ? "mic-ready" : "")}>
+      {ready ? (
+        <>
+          <span className="mic-status">
+            {recording ? <AudioLines size={18} /> : <Mic size={18} />}
+            {recording ? "Recording this moment…" : "Microphone on"}
+          </span>
+          <button
+            className="text-button"
+            disabled={recording}
+            onClick={() => {
+              mic.current?.stop();
+              setReady(false);
+              setMessage("Microphone stopped.");
+            }}
+          >
+            Stop
+          </button>
+        </>
+      ) : (
+        <button
+          className="button microphone-button"
+          disabled={enabling}
+          onClick={enable}
+        >
+          <Mic size={20} />
+          {enabling ? "Enabling microphone…" : "Enable microphone"}
+        </button>
+      )}
+    </div>
+  );
   if (loading)
     return (
       <>
@@ -257,50 +312,49 @@ export function PatientHome() {
       <>
         <Header patient />
         <main tabIndex={-1} id="main" className="patient-main unpaired">
-          <span className="eyebrow">Your listening companion</span>
-          <h1>
-            A small moment.
-            <br />A useful conversation.
-          </h1>
-          <p className="lead">
-            Connect to the demo profile your clinician created, then remember
-            the moments that matter.
-          </p>
+          <h1>Pair this phone</h1>
+          <p className="lead">Scan your clinician’s pairing code to begin.</p>
           <div className="glass onboarding-art">
             <ScanLine size={68} strokeWidth={1.2} />
           </div>
           {error && <ErrorBox message={error} />}
           <Link className="button full" href="/app/pair">
             <ScanLine size={22} />
-            Pair a demo profile
+            Pair a profile
           </Link>
           <p className="caption">
-            Have a QR code? Your phone’s camera can open it too.
+            You can scan the QR code or enter its code manually.
           </p>
           <div className="patient-boundary">
             <ShieldCheck size={18} />
-            <p>
-              Illustrative use only. No login, no speech transcription. Use
-              synthetic profiles.
-            </p>
+            <p>Illustrative demo. Use synthetic information only.</p>
           </div>
         </main>
       </>
     );
   return (
     <>
-      <Header patient />
-      <main tabIndex={-1} id="main" className="patient-main">
-        <div className="patient-welcome">
+      <Header
+        patient
+        actions={
+          <button
+            className="patient-about-button"
+            type="button"
+            aria-label="About & privacy"
+            aria-controls="patient-about"
+            aria-expanded={aboutOpen}
+            onClick={toggleAbout}
+          >
+            <Settings size={20} />
+          </button>
+        }
+      />
+      <main tabIndex={-1} id="main" className="patient-main patient-home">
+        <div className="patient-identity">
           <div>
-            <span className="eyebrow">Your listening space</span>
-            <h1>Hello, {patient.displayName.split(" ")[0]}.</h1>
+            <h1>{patient.displayName.split(" ")[0]}</h1>
+            <p>Next visit · {dateLabel(patient.followUpDate)}</p>
           </div>
-          <span className="avatar sage">{patient.displayName[0]}</span>
-        </div>
-        <div className="appointment-line">
-          <CalendarDays size={17} />
-          <span>Next appointment · {dateLabel(patient.followUpDate)}</span>
         </div>
         {offline && (
           <div className="notice">
@@ -309,9 +363,9 @@ export function PatientHome() {
           </div>
         )}
         {error && <ErrorBox message={error} />}{" "}
+        {questionEvent && ready && microphoneControl}
         {questionEvent ? (
-          <section className="glass questions">
-            <span className="eyebrow">A little context</span>
+          <section className="glass questions patient-questionnaire">
             <h2>What was difficult?</h2>
             <form onSubmit={finishAnswers}>
               <fieldset>
@@ -359,77 +413,61 @@ export function PatientHome() {
                 className="button full"
                 disabled={!difficulty || !environment}
               >
-                Save these answers <Check size={20} />
+                Save answers <Check size={20} />
               </button>
             </form>
           </section>
         ) : (
           <>
-            <div className="listening-prompt">
-              <span className="eyebrow">Right here, right now</span>
-              <h2>How is listening?</h2>
-            </div>
-            <div
-              className={"patient-actions " + (recording ? "is-recording" : "")}
-            >
-              <button
-                className="understand-action"
-                disabled={!ready || recording}
-                onClick={() => capture("understood")}
-              >
-                <span className="action-symbol">
-                  <Check size={32} strokeWidth={1.7} />
-                </span>
-                <span>I understand</span>
-                <span className="action-sub">A moment that feels good</span>
-              </button>
-              <button
-                className="difficult-action"
-                disabled={!ready || recording}
-                onClick={() => capture("difficult")}
-              >
-                <span className="action-symbol">
-                  <AudioLines size={31} strokeWidth={1.6} />
-                </span>
-                <span>I don’t understand</span>
-                <span className="action-sub">Let’s remember this moment</span>
-              </button>
-            </div>
-            <div className={"microphone-panel " + (ready ? "mic-ready" : "")}>
-              {ready ? (
-                <>
-                  <span className="mic-status">
-                    <Mic size={18} />
-                    {recording ? "Recording this moment…" : "Microphone ready"}
-                  </span>
-                  <button
-                    className="text-button"
-                    disabled={recording}
-                    onClick={() => {
-                      mic.current?.stop();
-                      setReady(false);
-                      setMessage("Microphone stopped.");
-                    }}
-                  >
-                    Stop
-                  </button>
-                </>
-              ) : (
-                <button
-                  className="button microphone-button"
-                  disabled={enabling}
-                  onClick={enable}
+            {recent ? (
+              <>
+                {ready && microphoneControl}
+                <section className="recent-section" aria-label="History">
+                  <h2>History</h2>
+                  {events.length ? (
+                    <EventList events={events} patient />
+                  ) : (
+                    <p className="caption">Saved moments will appear here.</p>
+                  )}
+                </section>
+              </>
+            ) : (
+              <>
+                {microphoneControl}
+                <div
+                  className={
+                    "patient-actions " + (recording ? "is-recording" : "")
+                  }
                 >
-                  <Mic size={20} />
-                  {enabling ? "Enabling microphone…" : "Enable microphone"}
-                </button>
-              )}
-            </div>
-            <p className="microphone-note">
-              {ready
-                ? "Only while this screen is open. Each moment saves about 10 seconds."
-                : "Enable your phone microphone to save a listening sample."}
-            </p>
+                  <button
+                    className="understand-action"
+                    disabled={!ready || recording}
+                    onClick={() => capture("understood")}
+                  >
+                    <span className="action-symbol">
+                      <Check size={32} strokeWidth={1.7} />
+                    </span>
+                    <span>I understand</span>
+                  </button>
+                  <button
+                    className="difficult-action"
+                    disabled={!ready || recording}
+                    onClick={() => capture("difficult")}
+                  >
+                    <span className="action-symbol">
+                      <AudioLines size={31} strokeWidth={1.6} />
+                    </span>
+                    <span>I don’t understand</span>
+                  </button>
+                </div>
+                <p className="patient-last-saved">
+                  {lastSavedAt && <Check size={20} aria-hidden="true" />}
+                  {lastSavedAt
+                    ? `Last saved · ${dateLabel(lastSavedAt)}, ${new Date(lastSavedAt).toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" })}`
+                    : "No moments saved yet"}
+                </p>
+              </>
+            )}
             {message && (
               <p className="patient-message" role="status">
                 {recording && (
@@ -473,51 +511,50 @@ export function PatientHome() {
                 ))}
               </div>
             )}
-            <button
-              className="recent-toggle"
-              onClick={() => setRecent(!recent)}
-              aria-expanded={recent}
+            <details
+              id="patient-about"
+              className="patient-info"
+              ref={about}
+              open={aboutOpen}
+              onToggle={(event) => setAboutOpen(event.currentTarget.open)}
             >
-              <History size={21} />
-              <span>Recent moments</span>
-              <ChevronRight size={20} />
-            </button>
-            {recent && (
-              <section className="recent-section">
-                {events.length ? (
-                  <EventList events={events.slice(0, 10)} patient />
-                ) : (
-                  <p className="caption">
-                    Your received moments will appear here.
-                  </p>
-                )}
-              </section>
-            )}
-            <details className="patient-info">
-              <summary>About your microphone and this demo</summary>
+              <summary>About & privacy</summary>
+              <Link className="text-button" href="/app/pair">Pair another profile <ArrowRight size={16} /></Link>
               <p>
-                Prebuffering starts only after you enable the microphone. Up to
-                five seconds before a press and five seconds after are captured.
-                A shorter prebuffer adds more time after the press. Locking your
-                phone or leaving the app stops monitoring.
+                The microphone starts only after you enable it. A moment can
+                include up to five seconds before and after your press. Leaving
+                the app stops it.
               </p>
               <p>
-                The phone microphone is intended, but connected hearing aids or
-                other devices can change audio routing. The app records
-                available source settings; it cannot confirm where sound was
-                captured.
+                Offline moments stay on this device and retry when you reconnect.
               </p>
               <p>
-                Audio is private and is deleted after successful feature
-                extraction. Failed or abandoned uploads are cleaned up within a
-                bounded retention window. Clinical interpretation remains with
-                your clinician.
-              </p>
-              <p>
-                Only save recordings you are comfortable sharing in this demo.
-                Avoid private conversations and real patient details.
+                This is an illustrative demo. It does not diagnose a condition
+                or set hearing-aid settings.
               </p>
             </details>
+            {!recording && (
+              <nav className="patient-bottom-nav" aria-label="Patient sections">
+                <button
+                  type="button"
+                  className={!recent ? "active" : ""}
+                  aria-current={!recent ? "page" : undefined}
+                  onClick={() => setRecent(false)}
+                >
+                  <Mic size={19} />
+                  Record
+                </button>
+                <button
+                  type="button"
+                  className={recent ? "active" : ""}
+                  aria-current={recent ? "page" : undefined}
+                  onClick={() => setRecent(true)}
+                >
+                  <History size={19} />
+                  History
+                </button>
+              </nav>
+            )}
           </>
         )}
       </main>
@@ -555,7 +592,6 @@ export function PairConfirmation({ token }: { token: string }) {
     <>
       <Header patient />
       <main tabIndex={-1} id="main" className="patient-main pairing-confirm">
-        <span className="eyebrow">A simple connection</span>
         {loading ? (
           <Loading label="Checking your pairing link…" />
         ) : name ? (
@@ -563,11 +599,7 @@ export function PairConfirmation({ token }: { token: string }) {
             <span className="pair-confirm-icon">
               <Check size={38} />
             </span>
-            <h1>
-              Is this your
-              <br />
-              demo profile?
-            </h1>
+            <h1>Open this profile?</h1>
             <div className="glass paired-person">
               <span className="avatar sage">{name[0]}</span>
               <div>
@@ -575,10 +607,7 @@ export function PairConfirmation({ token }: { token: string }) {
                 <span>Synthetic demo profile</span>
               </div>
             </div>
-            <p>
-              Confirm to open your listening space on this device. Pairing
-              replaces the current patient profile here.
-            </p>
+            <p>Pairing replaces the profile currently stored on this phone.</p>
             <label className="acknowledgement">
               <input
                 type="checkbox"
@@ -586,9 +615,8 @@ export function PairConfirmation({ token }: { token: string }) {
                 onChange={(e) => setAck(e.target.checked)}
               />
               <span>
-                I understand this is an illustrative demo, not clinical
-                authentication or medical advice. I will use synthetic
-                information.
+                I understand this is an illustrative demo and will use
+                synthetic information.
               </span>
             </label>
             <button
@@ -596,17 +624,13 @@ export function PairConfirmation({ token }: { token: string }) {
               disabled={!ack || busy}
               onClick={confirm}
             >
-              {busy ? "Connecting…" : "Yes, open my listening space"}
+              {busy ? "Connecting…" : "Confirm profile"}
               <ArrowRight size={20} />
             </button>
           </>
         ) : (
           <>
-            <h1>
-              This link cannot
-              <br />
-              connect a profile.
-            </h1>
+            <h1>Pairing unavailable</h1>
             <p>
               It may be invalid, expired or revoked. Ask for a new pairing code.
             </p>
@@ -694,15 +718,8 @@ export function PairScanner() {
           <ArrowLeft size={18} />
           Listening space
         </Link>
-        <span className="eyebrow">Start with your clinician</span>
-        <h1>
-          One scan.
-          <br />
-          Your listening space.
-        </h1>
-        <p>
-          Scan the QR code on your demo patient card, or enter its pairing code.
-        </p>
+        <h1>Pair this phone</h1>
+        <p>Scan the QR code or enter its pairing code.</p>
         <div className={"scanner-frame glass " + (scanning ? "active" : "")}>
           <video
             ref={video}
@@ -719,7 +736,7 @@ export function PairScanner() {
         ) : (
           <button className="button full" onClick={scan}>
             <ScanLine size={21} />
-            Open camera to scan
+            Scan QR code
           </button>
         )}
         {error && <ErrorBox message={error} />}
@@ -793,14 +810,13 @@ export function PatientEvent({ id }: { id: string }) {
           <Loading label="Opening your moment…" />
         ) : (
           <>
-            <span className="eyebrow">A moment you remembered</span>
             <h1>
               {event.kind === "understood"
                 ? "I understand."
                 : "I don’t understand."}
             </h1>
             <p>{dateLabel(event.capturedAt)}</p>
-            <section className="glass patient-event-summary">
+            <section className="glass patient-event-summary patient-event-detail">
               <Status value={event.status} />
               {event.kind === "difficult" && (
                 <>
@@ -817,9 +833,9 @@ export function PatientEvent({ id }: { id: string }) {
                     ? "This moment is preserved, but analysis could not finish."
                     : "Your moment has been received. Processing continues while you are away."}
               </p>
-              {event.interpretation?.status === "unavailable" && (
+              {event.interpretation && ["unavailable", "failed", "skipped"].includes(event.interpretation.status) && (
                 <p className="caption">
-                  Astra interpretation is unavailable for this moment.
+                  Automated interpretation: {event.interpretation.status}. Your moment is saved.
                 </p>
               )}
               {event.interpretation?.status === "held_budget" && (

@@ -7,6 +7,13 @@ function iso(value: unknown): string {
   return value instanceof Date ? value.toISOString() : String(value);
 }
 
+// PostgreSQL DATE is a calendar day; node-postgres parses it at local midnight.
+// Converting that value to UTC can move a follow-up to the preceding day.
+function calendarDate(value: unknown): string {
+  if (!(value instanceof Date)) return String(value).slice(0, 10);
+  return [value.getFullYear(), String(value.getMonth() + 1).padStart(2, "0"), String(value.getDate()).padStart(2, "0")].join("-");
+}
+
 export function patientFromRow(row: Row): Patient {
   return {
     id: String(row.id),
@@ -14,7 +21,7 @@ export function patientFromRow(row: Row): Patient {
     displayName: String(row.display_name),
     audiogram: row.audiogram as ProfileInput["audiogram"],
     aids: row.aids as ProfileInput["aids"],
-    followUpDate: iso(row.follow_up_date).slice(0, 10),
+    followUpDate: calendarDate(row.follow_up_date),
     note: String(row.note ?? ""),
     timezone: String(row.timezone),
     createdAt: iso(row.created_at),

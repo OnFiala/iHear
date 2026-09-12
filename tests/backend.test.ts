@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { types as pgTypes } from "pg";
+import { patientFromRow } from "../src/lib/server/records";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { inspectWav, eventFingerprint } from "../src/lib/server/wav";
@@ -349,4 +351,22 @@ test("the loopback proxy replaces client-supplied forwarding before IP hashing",
     /proxy_set_header\s+X-Forwarded-For\s+\$remote_addr;/,
   );
   assert.doesNotMatch(config, /proxy_add_x_forwarded_for/);
+});
+
+
+test("Postgres calendar dates keep the same follow-up day in positive and negative timezones", () => {
+  const previousTimezone = process.env.TZ;
+  try {
+    for (const timezone of ["Europe/Prague", "America/New_York", "UTC"]) {
+      process.env.TZ = timezone;
+      for (const date of ["2026-03-29", "2026-09-28", "2026-11-01"]) {
+        const row = { follow_up_date: pgTypes.getTypeParser(1082)(date) };
+        assert.equal(patientFromRow(row).followUpDate, date, `${timezone}: ${date}`);
+        assert.equal(patientFromRow({ follow_up_date: date }).followUpDate, date);
+      }
+    }
+  } finally {
+    if (previousTimezone === undefined) delete process.env.TZ;
+    else process.env.TZ = previousTimezone;
+  }
 });

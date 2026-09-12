@@ -3,9 +3,9 @@ import "@fontsource-variable/dm-sans";
 import "@fontsource-variable/manrope";
 import "./globals.css";
 export const metadata: Metadata = {
-  title: { default: "iHear — Moments that matter", template: "%s · iHear" },
+  title: { default: "iHear — Listening log", template: "%s · iHear" },
   description:
-    "A quiet way to remember listening moments. An illustrative demo for patients and hearing-care clinicians.",
+    "Record listening moments for your next visit. An illustrative demo for patients and clinicians.",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon.svg", apple: "/app-icon.png" },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "iHear" },
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#f5f4ef",
+  themeColor: "#ffffff",
 };
 export default function RootLayout({
   children,

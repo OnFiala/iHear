@@ -62,7 +62,7 @@ python3 scripts/local.py start --production --origin https://YOUR-MACHINE.YOUR-T
 
 Keep the actual hostname in ignored `.env.local`. This uses private Serve, not public Funnel, and requires the phone to be connected to that tailnet. Do not overwrite an occupied Serve port. Disable this relay with `tailscale serve --https=8446 off` when finished. The relay and MacBook must remain running during this local milestone.
 
-In the clinician browser, create a synthetic profile and choose **Create pairing QR**. Open it with the phone camera, or use **Open camera to scan** / the manual code in the PWA. Confirm the displayed profile and acknowledgement. Enable the microphone, keep the screen in the foreground, wait at least five seconds, then choose either listening action. Negative moments ask two questions. A confirmation of receipt appears only after server acknowledgement.
+In the clinician browser, create a synthetic profile and choose **Create pairing QR**. Open it with the phone camera, or use **Scan QR code** / the manual code in the PWA. Confirm the displayed profile and acknowledgement. Enable the microphone, keep the screen in the foreground, wait at least five seconds, then choose either listening action. Negative moments ask two questions. A confirmation of receipt appears only after server acknowledgement.
 
 The original clinician browser owns its isolated demo workspace. Another browser receives a different workspace; a paired phone has only that patient's scope. Losing the owner cookie loses access to that demo workspace. There is intentionally no recovery/login product in this milestone. Pairing links are bearer capabilities, not clinical authentication: do not publish screenshots of live QR codes.
 

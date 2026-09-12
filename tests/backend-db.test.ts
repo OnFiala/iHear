@@ -336,7 +336,7 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
        returning report_version`,
       [patientB],
     );
-    assert.equal(tableDefaultReport.rows[0].report_version, 2);
+    assert.equal(tableDefaultReport.rows[0].report_version, 3);
 
     const report = await client.query<{
       value: { reportId: string; status: string };
@@ -357,7 +357,7 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
     );
     const reportV2 = await client.query<{
       value: { reportId: string; status: string };
-    }>("select ihear.ensure_report_job($1, $2) as value", [
+    }>("select ihear.ensure_report_job($1, $2, 2) as value", [
       workspaceA,
       patientA,
     ]);
@@ -366,6 +366,19 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
       reportV2.rows[0].value.reportId,
       report.rows[0].value.reportId,
     );
+    const reportV3 = await client.query<{ value: { reportId: string; status: string } }>(
+      "select ihear.ensure_report_job($1, $2) as value", [workspaceA, patientA],
+    );
+    const reportV3Again = await client.query<{ value: { reportId: string } }>(
+      "select ihear.ensure_report_job($1, $2, 3) as value", [workspaceA, patientA],
+    );
+    assert.equal(reportV3.rows[0].value.status, "queued");
+    assert.equal(reportV3.rows[0].value.reportId, reportV3Again.rows[0].value.reportId);
+    assert.notEqual(reportV3.rows[0].value.reportId, reportV2.rows[0].value.reportId);
+    const scheduledV3 = await client.query<{ value: { reportId: string } }>(
+      "select ihear.ensure_scheduled_report_job($1, $2) as value", [workspaceA, patientA],
+    );
+    assert.equal(scheduledV3.rows[0].value.reportId, reportV3.rows[0].value.reportId);
     const reportVersions = await client.query<{
       id: string;
       report_version: number;
@@ -376,7 +389,7 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
        join ihear.jobs j on j.report_id = r.id and j.kind = 'report'
        where r.id = any($1::uuid[])
        order by r.report_version`,
-      [[report.rows[0].value.reportId, reportV2.rows[0].value.reportId]],
+      [[report.rows[0].value.reportId, reportV2.rows[0].value.reportId, reportV3.rows[0].value.reportId]],
     );
     assert.deepEqual(
       reportVersions.rows.map(({ report_version, job_version }) => ({
@@ -386,6 +399,7 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
       [
         { report_version: 1, job_version: 1 },
         { report_version: 2, job_version: 2 },
+        { report_version: 3, job_version: 3 },
       ],
     );
     const reportJob = await client.query<{ id: string }>(

@@ -57,15 +57,24 @@ test.afterAll(async () => {
 test("clinician creates synthetic profile and the QR pairing confirms the same patient", async () => {
   const p = await owner.newPage();
   await open(p, base + "/clinic");
-  await p.getByRole("link", { name: "Create demo patient" }).first().click();
-  await p.getByLabel("Display name").fill(name);
+  await p.getByRole("link", { name: "New patient" }).first().click();
+  await p.getByRole("textbox", { name: /^Name/ }).fill(name);
+  await p.getByLabel("Follow-up date").fill("2026-09-28");
   await p
-    .getByLabel("Brief demo note")
+    .getByLabel("Note")
     .fill("Synthetic garden conversation for full-text search.");
-  await p.getByRole("button", { name: "Create demo profile" }).click();
+  await p.getByRole("button", { name: "Create patient" }).click();
   await expect(p).toHaveURL(/\/clinic\/patients\/[a-f0-9-]+$/);
   patientId = p.url().split("/").pop()!;
   await expect(p.getByRole("heading", { name, exact: true })).toBeVisible();
+  await expect(p.getByText("Follow-up Sep 28, 2026", { exact: false })).toBeVisible();
+  await p.getByRole("tab", { name: "Moments", exact: false }).focus();
+  await p.keyboard.press("ArrowRight");
+  await expect(p.getByRole("tab", { name: "Profile", exact: true })).toBeFocused();
+  await expect(p.getByRole("tab", { name: "Profile", exact: true })).toHaveAttribute("aria-selected", "true");
+  await p.keyboard.press("Home");
+  await expect(p.getByRole("tab", { name: "Moments", exact: false })).toHaveAttribute("aria-selected", "true");
+  await p.getByRole("button", { name: "Pair phone", exact: true }).click();
   await p.getByRole("button", { name: "Create pairing QR" }).click();
   const link = p.getByRole("link", { name: "Open pairing link" });
   await expect(link).toBeVisible();
@@ -85,15 +94,18 @@ test("clinician creates synthetic profile and the QR pairing confirms the same p
   await expect(app.getByText(name, { exact: true })).toBeVisible();
   await app.getByRole("checkbox").check();
   await app
-    .getByRole("button", { name: "Yes, open my listening space" })
+    .getByRole("button", { name: "Confirm profile" })
     .click();
   await expect(
-    app.getByRole("heading", { name: "Hello, Demo." }),
+    app.getByRole("heading", { name: "Demo" }),
   ).toBeVisible();
   await app.reload();
   await expect(
-    app.getByRole("heading", { name: "Hello, Demo." }),
+    app.getByRole("heading", { name: "Demo" }),
   ).toBeVisible();
+  await app.getByRole("button", { name: "About & privacy", exact: true }).click();
+  await expect(app.getByRole("link", { name: "Pair another profile", exact: false })).toBeVisible();
+  await app.locator("#patient-about > summary").click();
   await noHorizontalOverflow(app);
   await app.screenshot({
     path: "artifacts/patient-mobile.png",
@@ -104,7 +116,7 @@ test("clinician creates synthetic profile and the QR pairing confirms the same p
 test("both actions save real fake-device PCM; negative answers and DSP reach correct clinician profile", async () => {
   const p = phone.pages()[0];
   await p.getByRole("button", { name: "Enable microphone" }).click();
-  await expect(p.getByText("Microphone ready", { exact: true })).toBeVisible();
+  await expect(p.getByText("Microphone on", { exact: true })).toBeVisible();
   const accessibility = await new AxeBuilder({ page: p })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
     .analyze();
@@ -114,6 +126,12 @@ test("both actions save real fake-device PCM; negative answers and DSP reach cor
       targets: v.nodes.map((n) => n.target),
     })),
   ).toEqual([]);
+  await p.getByRole("button", { name: "History", exact: true }).click();
+  await expect(p.getByRole("heading", { name: "History", exact: true })).toBeVisible();
+  await expect(p.getByRole("button", { name: "I understand", exact: true })).toHaveCount(0);
+  await expect(p.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+  await p.getByRole("button", { name: "Record", exact: true }).click();
+  await expect(p.getByText("Microphone on", { exact: true })).toBeVisible();
   await p.waitForTimeout(5300);
   await p
     .getByRole("button", { name: "I understand", exact: false })
@@ -121,7 +139,7 @@ test("both actions save real fake-device PCM; negative answers and DSP reach cor
     .click();
   await expect(
     p.getByText(
-      "Moment received. Your clinician will see it after processing.",
+      "Moment saved.",
     ),
   ).toBeVisible({ timeout: 30000 });
   await p
@@ -132,10 +150,11 @@ test("both actions save real fake-device PCM; negative answers and DSP reach cor
   ).toBeVisible({ timeout: 25000 });
   await p.getByLabel("Several people talking", { exact: true }).check();
   await p.getByLabel("Background conversation", { exact: true }).check();
-  await p.getByRole("button", { name: "Save these answers" }).click();
+  await p.getByRole("button", { name: "Save answers" }).click();
   await expect(
-    p.getByText("Moment received. Thank you for sharing what happened."),
+    p.getByText("Moment saved."),
   ).toBeVisible({ timeout: 30000 });
+  await p.screenshot({ path: "artifacts/patient-ready.png", fullPage: true });
   const response = await phone.request.get("/api/events");
   expect(response.ok()).toBe(true);
   const rows = (await response.json()).events;
@@ -166,9 +185,16 @@ test("both actions save real fake-device PCM; negative answers and DSP reach cor
   expect(detail.interpretation.status).toBe("unavailable");
   const clinic = owner.pages()[0];
   await clinic.reload();
+  await clinic.locator("#event-" + eventId + " > summary").click();
+  await clinic.screenshot({ path: "artifacts/clinician-compact.png", fullPage: true });
+  await clinic.locator("#event-" + eventId).getByText("Acoustic details", { exact: true }).click();
   await expect(
     clinic.getByText("Relative spectral energy").first(),
   ).toBeVisible();
+  await expect(clinic.locator("#event-" + eventId).getByText("unavailable", { exact: true })).toBeVisible();
+  await p.goto(base + "/app/events/" + eventId);
+  await expect(p.getByText("Automated interpretation: unavailable.", { exact: false })).toBeVisible();
+  await expect(p.getByText("Several people talking", { exact: true })).toBeVisible();
   await clinic.screenshot({
     path: "artifacts/clinician-results.png",
     fullPage: true,
@@ -179,12 +205,12 @@ test("database full-text search finds profile notes and negative event content",
   const p = owner.pages()[0];
   await open(p, base + "/clinic");
   await p.getByRole("searchbox").fill("garden");
-  await expect(p.getByRole("heading", { name, exact: true })).toBeVisible();
+  await expect(p.locator(".clinic-patient-row").filter({ hasText: name })).toBeVisible();
   await p.getByRole("searchbox").fill("Several people talking");
-  await expect(p.getByRole("heading", { name, exact: true })).toBeVisible();
+  await expect(p.locator(".clinic-patient-row").filter({ hasText: name })).toBeVisible();
   await p.getByRole("searchbox").fill("doesnotexistword");
   await expect(
-    p.getByRole("heading", { name: "No matching profiles" }),
+    p.getByRole("heading", { name: "No matching patients" }),
   ).toBeVisible();
 });
 
@@ -217,7 +243,7 @@ test("offline capture survives reopening and foreground retry without duplicate 
   const p = phone.pages()[0];
   await open(p, base + "/app");
   await p.getByRole("button", { name: "Enable microphone" }).click();
-  await expect(p.getByText("Microphone ready", { exact: true })).toBeVisible();
+  await expect(p.getByText("Microphone on", { exact: true })).toBeVisible();
   await p.waitForTimeout(1200);
   await phone.setOffline(true);
   await p
@@ -225,13 +251,13 @@ test("offline capture survives reopening and foreground retry without duplicate 
     .first()
     .click();
   await expect(
-    p.getByText("Moment saved on this device. Thank you."),
+    p.getByText("Saved on this device."),
   ).toBeVisible({ timeout: 25000 });
   await expect(
     p.getByText("saved locally", { exact: false }).first(),
   ).toBeVisible();
   await p.reload({ waitUntil: "domcontentloaded" });
-  await expect(p.getByRole("heading", { name: "Hello, Demo." })).toBeVisible({
+  await expect(p.getByRole("heading", { name: "Demo" })).toBeVisible({
     timeout: 20000,
   });
   await expect(
@@ -271,12 +297,12 @@ test("on-demand report is a real PDF and repeated requests reuse its revision", 
     .toBe(true);
   const p = owner.pages()[0];
   await open(p, base + "/clinic/patients/" + patientId);
-  await p.getByRole("button", { name: "Prepare PDF report" }).click();
+  await p.getByRole("button", { name: "Export report" }).click();
   await expect(
-    p.getByRole("link", { name: "Download PDF report" }),
+    p.getByRole("link", { name: "Download report" }),
   ).toBeVisible({ timeout: 120000 });
   const url = (await p
-    .getByRole("link", { name: "Download PDF report" })
+    .getByRole("link", { name: "Download report" })
     .getAttribute("href"))!;
   const r = await owner.request.get(url);
   expect(r.status()).toBe(200);
@@ -360,7 +386,7 @@ test("identical concurrent uploads reuse one event and one analysis", async () =
   await clinic.reload();
   await expect(
     clinic.getByText(
-      "New information arrived after the report was requested.",
+      "New information arrived after the last request.",
       { exact: false },
     ),
   ).toBeVisible();
@@ -411,7 +437,7 @@ test("in-app QR scanner decodes a real camera fixture and revocation blocks old 
     });
     const p = await context.newPage();
     await p.goto("/app/pair");
-    await p.getByRole("button", { name: "Open camera to scan" }).click();
+    await p.getByRole("button", { name: "Scan QR code" }).click();
     await expect(p).toHaveURL(pairURL, { timeout: 30000 });
     await expect(p.getByText(name, { exact: true })).toBeVisible();
     const revoked = await owner.request.delete(
@@ -422,7 +448,7 @@ test("in-app QR scanner decodes a real camera fixture and revocation blocks old 
     expect((await phone.request.get("/api/events")).status()).toBe(401);
     await p.reload();
     await expect(
-      p.getByRole("heading", { name: "This link cannot connect a profile." }),
+      p.getByRole("heading", { name: "Pairing unavailable" }),
     ).toBeVisible();
   } finally {
     await cameraBrowser.close();

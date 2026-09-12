@@ -1,10 +1,27 @@
 # Implementation status
 
-Updated 2026-09-12. **Private Linux sandbox security/source review: PASS.
-Closed-lid reboot: PASS in the initial deployment. Final-revision browser run: PARTIAL.
-All ten browser scenarios passed across recorded runs. Physical iOS coverage: PARTIAL.
-Public application release: NOT RUN.** No public application or paid cloud resource
-was provisioned. Interpretation API use is intentionally disabled.
+Updated 2026-09-12. **Clear Signal implementation and local verification: PASS.
+Private Linux activation pending. Public application
+release: NOT RUN.** The selected direction retains the original 3D glass artwork.
+No public application or paid cloud resource is provisioned; interpretation API
+use remains intentionally disabled.
+
+The current candidate includes the patient Record/History split, compact clinician
+Moments/Profile review, accessible pairing/settings, and PDF template 3. Version 1/2
+PDFs remain historical. The visual review also found and fixed a pre-existing date
+serialization defect: PostgreSQL DATE must retain its local calendar day instead
+of shifting through UTC. Prague, New York and UTC regression cases pass.
+
+Local checks: 19 audio/backend tests, five real Postgres suites, 36 runtime/source
+scanner tests and 43 worker tests passed (one model-artifact probe skipped in the
+network-isolated unit image). Production build/typecheck passed. The eight linked
+browser scenarios passed in 51.9 seconds; the two accessibility/WebKit scenarios
+passed separately on the same visual build. Initial runs exposed two stale test
+selectors after the UI reshaping; these were corrected without weakening behavior
+assertions. The final date/pagination refinements also passed narrow verification: two browser
+scenarios, timezone parser regression cases and a three-moment pagination fixture.
+
+## Previous private sandbox milestone (historical evidence)
 
 The security update is source-reviewed with 26 runtime tests, 10 publication
 scanner tests, 18 audio/backend tests, 41 worker unit tests, five real PostgreSQL
@@ -18,7 +35,7 @@ no 5xx, from 160 requests at concurrency 16. This is an overload-control probe,
 not a public-capacity or volumetric DDoS benchmark.
 The private/public boundary and proposed hostname are in [SECURITY.md](SECURITY.md).
 
-The deployed security revision is `57d2c1c1f58e32ebdd4f3858e4287ab10385d5f1`.
+The pre-redesign deployed security revision was `57d2c1c1f58e32ebdd4f3858e4287ab10385d5f1`.
 The final `main` handoff differs only in documentation; its application, worker,
 migrations, service configuration and operating scripts match that runtime source.
 The runtime keeps its valid original build manifest and was not restarted again
@@ -64,11 +81,11 @@ not be read as additional current Linux or physical-phone proof.
 
 ## Working behavior
 
-The English landing page, clinician directory/profile editor, opaque QR/manual/scanner pairing, paired patient home, both audio actions, negative questionnaire, pending uploads, event details and report workflow are implemented. The glass design uses original generated art, local fonts, accessible controls and reduced-motion handling.
+The English landing page, clinician directory/profile editor, opaque QR/manual/scanner pairing, paired patient home, both audio actions, negative questionnaire, pending uploads, event details and report workflow are implemented. Clear Signal uses original glass artwork, white/cobalt/yellow surfaces, local fonts, accessible controls and reduced-motion handling.
 
 Native-rate PCM moves through private Supabase Storage to a single Docker worker. Real NumPy/SciPy calculations and pinned Silero/YAMNet estimates appear in the correct clinician card. Raw audio is deleted after durable feature extraction. Database full-text search includes name, notes and event content; filters run in SQL. Visitor capabilities isolate workspaces and paired patients.
 
-Jobs have bounded retries, renewable leases and a fresh UUID for every claim. Old attempts cannot overwrite newer state or delete another attempt's PDF. DSP survives interpretation failure. Duplicate uploads reuse one event/analysis and never trigger another paid call. Report template v2 preserves historical caches, shows no invented empty-chart measurement, labels illustrative use, uses clinic-local timestamps, and schedules at 08:00 one clinic-local calendar day before follow-up. Changed inputs show an outdated-report notice.
+Jobs have bounded retries, renewable leases and a fresh UUID for every claim. Old attempts cannot overwrite newer state or delete another attempt's PDF. DSP survives interpretation failure. Duplicate uploads reuse one event/analysis and never trigger another paid call. Report template v3 preserves historical caches, shows no invented empty-chart measurement, labels illustrative use, uses clinic-local timestamps, and schedules at 08:00 one clinic-local calendar day before follow-up. Changed inputs show an outdated-report notice.
 
 ## MacBook development runtime (2026-09-11 evidence)
 

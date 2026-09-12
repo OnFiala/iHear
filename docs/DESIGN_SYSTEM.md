@@ -1,14 +1,30 @@
 # Design system
 
-A quiet, soft glass interface supports two unmistakable patient actions. Warm ivory background, sage positive action, peach difficult action, dark green text, generously rounded controls. Text labels and icons always accompany color.
+Clear Signal is the owner-selected direction from 2026-09-12. A white surface,
+cobalt primary action, pale yellow difficult action and dark text support the two
+patient choices. The original three-dimensional glass illustration stays on the
+landing page. The approved combined visual is `docs/design/clear-signal-reference.png`.
 
 ## Implementation
-- CSS lives in src/app/globals.css. Glass uses translucent surfaces, a restrained border, soft depth and backdrop blur.
-- Older-adult patient controls use 25-27 px action text, approximately 163-174 px action cards, and explicit microphone state. Native form controls and visible keyboard focus remain usable.
-- Responsive clinician cards, one-column phone flows, no essential animation or audio cues.
-- Short transitions; prefers-reduced-motion disables animation. Opaque fallback for unsupported blur, reduced transparency and higher contrast preferences.
-- Manrope Variable and DM Sans Variable are locally bundled, OFL-1.1 fonts via pinned Fontsource packages. No third-party font requests.
-- Actual charts are SVG/CSS driven by synthetic audiogram values and real DSP results. No raster clinical graphs.
+- `src/app/globals.css` owns the shared tokens: ink #17212D, muted #52627A,
+  cobalt #184DD8, pale blue #EDF3FF, yellow #F5DEA0 and border #DCE2EC.
+- Manrope Variable headings and DM Sans Variable body/UI are locally bundled,
+  pinned Fontsource packages under OFL-1.1. No third-party font requests.
+- Patient actions use 25 px labels and at least 110 px height. Color always has a
+  text label and Lucide icon. Microphone state and Stop remain explicit.
+- Record and History are separate views of the same active patient session.
+  Pending offline moments, required answers and errors remain accessible.
+  About & privacy contains microphone/storage information and re-pairing.
+- The clinician directory uses rows. Patient review opens on Moments; Profile
+  holds the audiogram, aids and editor. Pairing and acoustic evidence expand on demand.
+- The PDF begins with a chronological listening log and preserves actual DSP,
+  model provenance, unavailable/failed interpretation and synthetic audiogram
+  evidence in technical details. Report template 3 has a separate cache identity.
+- Responsive layouts preserve native form controls, visible keyboard focus,
+  at least 44 px primary targets, reduced motion and higher contrast preferences.
+  There is no essential animation, glass blur or audio-only feedback.
+- Scientific charts remain driven by actual data. No raster clinical graphs or
+  invented measurements. `design-qa.md` records visual comparison and limitations.
 
 ## Asset provenance
 `public/listening-glass.png` was generated on 2026-09-11 using the built-in OpenAI Image Generation tool. Availability was verified by a successful generation. The tool does not expose its selected model identifier; no unverified model name is claimed. The source image is copied into the repository, not referenced from a machine-private generated-image folder.

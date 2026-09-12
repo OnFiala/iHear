@@ -6,14 +6,16 @@ import {
   ArrowRight,
   CalendarDays,
   Check,
+  ChevronDown,
   ClipboardList,
   Download,
+  Info,
+  Link2,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
   SlidersHorizontal,
-  Users,
-  ScanLine,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { api, dateLabel } from "@/lib/client/api";
@@ -90,36 +92,26 @@ export function ClinicDirectory() {
   }, []);
   return (
     <>
-      <Header />
-      <main tabIndex={-1} id="main" className="clinic-main page-width">
-        <div className="page-title-row">
-          <div>
-            <span className="eyebrow">
-              Clinician space{" "}
-              <span className="label-pill">Illustrative demo</span>
-            </span>
-            <h1>People, before patterns.</h1>
-            <p>A clearer view of everyday listening, one person at a time.</p>
-          </div>
-          <Link href="/clinic/patients/new" className="button">
+      <Header clinic />
+      <main
+        tabIndex={-1}
+        id="main"
+        className="clinic-main clinic-directory page-width"
+      >
+        <div className="page-title-row clinic-directory-header">
+          <h1>Patients</h1>
+          <Link
+            href="/clinic/patients/new"
+            className="button"
+          >
             <Plus size={19} />
-            Create demo patient
+            New patient
           </Link>
         </div>
-        <div className="directory-banner glass">
-          <div className="banner-symbol">
-            <Users size={23} />
-          </div>
-          <div>
-            <strong>Your own demo space</strong>
-            <p>
-              Use synthetic names and audiograms. Only this browser and phones
-              you pair can access these profiles.
-            </p>
-          </div>
-          <span className="quiet-tag">Private by default</span>
-        </div>
-        <div className="directory-toolbar">
+        <p className="clinic-demo-note">
+          Illustrative demo. Use synthetic patient information only.
+        </p>
+        <div className="directory-toolbar clinic-directory-toolbar">
           <label className="search-box">
             <Search size={20} />
             <input
@@ -171,43 +163,50 @@ export function ClinicDirectory() {
           </div>
         </div>
         {error && <ErrorBox message={error} />}
-        <div className="list-heading">
+        <div className="list-heading clinic-list-heading">
           <span>
-            {patients.length} {patients.length === 1 ? "profile" : "profiles"}
+            {patients.length} {patients.length === 1 ? "patient" : "patients"}
           </span>
-          <span>Results refresh automatically</span>
+          <span aria-live="polite">Updates automatically</span>
         </div>
         {loading ? (
-          <Loading />
+          <Loading label="Loading patients…" />
         ) : patients.length === 0 ? (
-          <section className="empty-state glass">
-            <span className="empty-icon">
-              <Users size={35} strokeWidth={1.3} />
-            </span>
+          <section className="empty-state compact clinic-empty-state">
             <h2>
               {q || status || difficulty || followUp
-                ? "No matching profiles"
-                : "A new listening story starts here."}
+                ? "No matching patients"
+                : "No patients yet"}
             </h2>
             <p>
               {q || status || difficulty || followUp
                 ? "Try another search or clear your filters."
-                : "Create a synthetic profile, then pair a phone to capture your first listening moment."}
+                : "Create a synthetic patient profile to begin."}
             </p>
-            <Link className="button" href="/clinic/patients/new">
+            <Link
+              className="button"
+              href="/clinic/patients/new"
+            >
               <Plus size={18} />
-              Create demo patient
+              New patient
             </Link>
           </section>
         ) : (
-          <div className="patient-grid">
+          <div className="patient-grid clinic-patient-list">
+            <div className="clinic-patient-columns" aria-hidden="true">
+              <span>Patient</span>
+              <span>Follow-up</span>
+              <span>Moments</span>
+              <span>Status</span>
+              <span />
+            </div>
             {patients.map((p, i) => (
               <Link
-                className="patient-card glass"
+                className="patient-card clinic-patient-row"
                 href={"/clinic/patients/" + p.id}
                 key={p.id}
               >
-                <div className="patient-card-top">
+                <span className="clinic-patient-identity">
                   <span className={"avatar " + (i % 2 ? "peach" : "sage")}>
                     {p.displayName
                       .split(" ")
@@ -215,40 +214,41 @@ export function ClinicDirectory() {
                       .slice(0, 2)
                       .join("")}
                   </span>
-                  <span className="card-arrow">
-                    <ArrowRight size={19} />
-                  </span>
-                </div>
-                <h2>{p.displayName}</h2>
-                <span className="caption">Synthetic demo profile</span>
-                <div className="aid-summary">
-                  <AudioAid side={p.aids.side} />
                   <span>
-                    {p.aids.side === "bilateral"
-                      ? "Both ears"
-                      : p.aids.side === "left"
-                        ? "Left ear"
-                        : "Right ear"}{" "}
-                    · ALLURE BTE R D
+                    <strong>{p.displayName}</strong>
+                    <small>
+                      <AudioAid side={p.aids.side} />
+                      {p.aids.side === "bilateral"
+                        ? "Both ears"
+                        : p.aids.side === "left"
+                          ? "Left ear"
+                          : "Right ear"}
+                    </small>
                   </span>
-                </div>
-                <div className="patient-card-bottom">
-                  <span>
-                    <CalendarDays size={15} />
-                    {dateLabel(p.followUpDate)}
-                  </span>
-                  <span>{p.eventCount || 0} moments</span>
-                </div>
-                {p.latestStatus && <Status value={p.latestStatus} />}
+                </span>
+                <span className="clinic-patient-followup">
+                  <CalendarDays size={15} />
+                  {dateLabel(p.followUpDate)}
+                </span>
+                <span className="clinic-patient-count">
+                  {p.eventCount || 0}
+                </span>
+                <span className="clinic-patient-status">
+                  {p.latestStatus ? (
+                    <Status value={p.latestStatus} />
+                  ) : (
+                    <span className="caption">No moments</span>
+                  )}
+                </span>
+                <ArrowRight
+                  className="clinic-patient-arrow"
+                  size={19}
+                  aria-hidden="true"
+                />
               </Link>
             ))}
           </div>
         )}
-        <aside className="clinic-footnote">
-          Clinical interpretation remains with the clinician. Phone audio is not
-          calibrated sound pressure and cannot be compared directly with an
-          audiogram.
-        </aside>
       </main>
       <Footer />
     </>
@@ -293,27 +293,24 @@ export function PatientForm({
     }
   }
   return (
-    <form className="patient-form" onSubmit={submit}>
-      <section className="glass form-section">
-        <span className="eyebrow">01 · The person</span>
-        <h2>A simple demo profile</h2>
+    <form className="patient-form clinic-form" onSubmit={submit}>
+      <section className="glass form-section clinic-form-section">
+        <h2>Patient</h2>
         <div className="form-grid">
           <label>
-            Display name
+            Name
             <input
               required
               maxLength={80}
               autoComplete="off"
-              placeholder="For example, Alex Morgan"
+              placeholder="Alex Morgan"
               value={value.displayName}
               onChange={(e) => field("displayName", e.target.value)}
             />
-            <span className="caption">
-              Use a made-up name. No real patient details.
-            </span>
+            <span className="caption">Use a synthetic name.</span>
           </label>
           <label>
-            Next follow-up
+            Follow-up date
             <input
               type="date"
               required
@@ -322,11 +319,11 @@ export function PatientForm({
             />
           </label>
           <label className="wide">
-            Brief demo note <span className="optional">optional</span>
+            Note <span className="optional">optional</span>
             <textarea
               maxLength={500}
               rows={2}
-              placeholder="For example, exploring conversation in busy cafés."
+              placeholder="Context to review at the next visit"
               value={value.note}
               onChange={(e) => field("note", e.target.value)}
             />
@@ -345,12 +342,11 @@ export function PatientForm({
           </label>
         </div>
       </section>
-      <section className="glass form-section">
-        <span className="eyebrow">02 · Hearing profile</span>
-        <h2>Synthetic audiogram</h2>
+      <section className="glass form-section clinic-form-section">
+        <h2>Audiogram</h2>
         <p className="caption">
-          Clinician-entered hearing thresholds in dB HL. These example values
-          are editable and are not a fitting recommendation.
+          Synthetic clinician-entered thresholds in dB HL. These values are not
+          a fitting recommendation.
         </p>
         <div className="audiogram-form-layout">
           <div className="audiogram-inputs">
@@ -395,9 +391,8 @@ export function PatientForm({
           <Audiogram data={value.audiogram} />
         </div>
       </section>
-      <section className="glass form-section">
-        <span className="eyebrow">03 · Current hearing aids</span>
-        <h2>What they use today</h2>
+      <section className="glass form-section clinic-form-section">
+        <h2>Hearing aids</h2>
         <div className="form-grid">
           <label className="wide">
             Fitted ears
@@ -464,18 +459,17 @@ export function PatientForm({
         </div>
         <p className="caption">
           Illustrative device scope. Tier-specific differences are not inferred.
-          Earmold and venting decisions remain outside this demo.
         </p>
       </section>
       {error && <ErrorBox message={error} />}
       <div className="form-footer">
-        <p>Synthetic information only. This is an illustrative demo.</p>
-        <button className="button" disabled={saving}>
+        <p>Illustrative demo. Do not enter real patient information.</p>
+        <button className="button" type="submit" disabled={saving}>
           {saving
-            ? "Saving profile…"
+            ? "Saving…"
             : initial
-              ? "Save profile"
-              : "Create demo profile"}
+              ? "Save changes"
+              : "Create patient"}
           <ArrowRight size={18} />
         </button>
       </div>
@@ -485,20 +479,18 @@ export function PatientForm({
 export function NewPatient() {
   return (
     <>
-      <Header />
-      <main tabIndex={-1} id="main" className="form-main page-width">
+      <Header clinic />
+      <main
+        tabIndex={-1}
+        id="main"
+        className="form-main clinic-form-page page-width"
+      >
         <Link className="back-link" href="/clinic">
           <ArrowLeft size={17} />
-          All patients
+          Patients
         </Link>
-        <div className="page-title-row">
-          <div>
-            <span className="eyebrow">A thoughtful beginning</span>
-            <h1>Create a demo patient.</h1>
-            <p>
-              A little context now makes future listening moments more useful.
-            </p>
-          </div>
+        <div className="page-title-row clinic-form-header">
+          <h1>New patient</h1>
         </div>
         <PatientForm />
       </main>
@@ -513,6 +505,8 @@ export function PatientCard({ id }: { id: string }) {
     [qr, setQr] = useState(""),
     [error, setError] = useState(""),
     [editing, setEditing] = useState(false),
+    [activeTab, setActiveTab] = useState<"moments" | "profile">("moments"),
+    [pairingOpen, setPairingOpen] = useState(false),
     [pairingBusy, setPairingBusy] = useState(false),
     [report, setReport] = useState<{ status: string; url?: string } | null>(
       null,
@@ -601,299 +595,345 @@ export function PatientCard({ id }: { id: string }) {
   }
   return (
     <>
-      <Header />
-      <main tabIndex={-1} id="main" className="clinic-main page-width">
+      <Header clinic />
+      <main
+        tabIndex={-1}
+        id="main"
+        className="clinic-main clinic-profile page-width"
+      >
         <Link href="/clinic" className="back-link">
           <ArrowLeft size={17} />
-          All patients
+          Patients
         </Link>
-        {error && <ErrorBox message={error} />}{" "}
+        {error && <ErrorBox message={error} />}
         {!patient ? (
-          <Loading label="Opening patient profile…" />
+          <Loading label="Loading patient…" />
         ) : (
           <>
-            <div className="page-title-row">
+            <div className="page-title-row clinic-profile-header">
               <div>
-                <span className="eyebrow">Synthetic demo patient</span>
                 <h1>{patient.displayName}</h1>
                 <p>
                   <CalendarDays size={17} className="inline-icon" />
-                  Next conversation · {dateLabel(patient.followUpDate)}
+                  Follow-up {dateLabel(patient.followUpDate)}
                 </p>
               </div>
-              <button
-                className="button secondary"
-                onClick={() => setEditing(!editing)}
-              >
-                {editing ? "Close setup" : "Edit profile"}
-              </button>
+              <div className="clinic-profile-actions">
+                <button
+                  className="button secondary"
+                  type="button"
+                  aria-expanded={pairingOpen}
+                  aria-controls="pairing-panel"
+                  onClick={() => setPairingOpen((open) => !open)}
+                >
+                  <Link2 size={17} />
+                  Pair phone
+                </button>
+                {report?.status === "ready" && report.url ? (
+                  <a
+                    className="button"
+                    href={report.url}
+                  >
+                    <Download size={18} />
+                    Download report
+                  </a>
+                ) : (
+                  <button
+                    className="button"
+                    type="button"
+                    disabled={
+                      reportBusy ||
+                      report?.status === "queued" ||
+                      report?.status === "generating"
+                    }
+                    onClick={requestReport}
+                  >
+                    <ClipboardList size={18} />
+                    {report?.status === "queued" ||
+                    report?.status === "generating"
+                      ? "Preparing…"
+                      : "Export report"}
+                  </button>
+                )}
+              </div>
             </div>
-            {editing ? (
-              <PatientForm
-                initial={patient}
-                onSaved={(p) => {
-                  setPatient(p);
-                  setEditing(false);
-                }}
-              />
-            ) : (
-              <>
-                <div className="patient-overview">
-                  <section className="glass overview-profile">
-                    <div className="card-heading">
-                      <h2>The hearing profile</h2>
-                      <span className="quiet-tag">
-                        Versioned with each moment
-                      </span>
-                    </div>
-                    <Audiogram data={patient.audiogram} />
-                    <div className="aid-pills">
-                      {(["left", "right"] as const).map(
-                        (ear) =>
-                          patient.aids[ear] && (
-                            <span key={ear}>
-                              <strong>{ear === "left" ? "L" : "R"}</strong>
-                              {patient.aids[ear]!.model} ·{" "}
-                              {patient.aids[ear]!.tier}
-                            </span>
-                          ),
+
+            {report?.status === "failed" && (
+              <p className="notice error clinic-report-notice" role="alert">
+                The report could not be prepared. The moments are preserved;
+                try again after processing finishes.
+              </p>
+            )}
+            {report?.status === "outdated" && (
+              <p className="notice clinic-report-notice" role="status">
+                New information arrived after the last request. Export an
+                updated report after processing finishes.
+              </p>
+            )}
+
+            {pairingOpen && (
+              <section
+                id="pairing-panel"
+                className="glass pairing-card clinic-pairing-panel"
+              >
+                <div className="clinic-panel-heading">
+                  <div>
+                    <h2>Pair phone</h2>
+                    <p>Connect this synthetic profile to the patient app.</p>
+                  </div>
+                  <button
+                    className="text-button"
+                    type="button"
+                    onClick={() => setPairingOpen(false)}
+                  >
+                    Close
+                  </button>
+                </div>
+                {pairing ? (
+                  <div className="clinic-pairing-content">
+                    <div className="qr-container">
+                      {qr && (
+                        <img
+                          src={qr}
+                          width="190"
+                          height="190"
+                          alt="QR code for this demo profile’s opaque pairing link"
+                        />
                       )}
                     </div>
-                    {patient.note && (
-                      <p className="profile-note">{patient.note}</p>
-                    )}
-                  </section>
-                  <section className="glass pairing-card">
-                    <span className="eyebrow">
-                      <ScanLine size={16} /> A simple connection
-                    </span>
-                    <h2>
-                      Bring a phone into
-                      <br />
-                      the conversation.
-                    </h2>
-                    {pairing ? (
-                      <>
-                        <div className="qr-container">
-                          {qr && (
-                            <img
-                              src={qr}
-                              width="210"
-                              height="210"
-                              alt="QR code for this demo profile’s opaque pairing link"
-                            />
-                          )}
+                    <div className="clinic-pairing-details">
+                      <p>Scan the QR code with the phone camera.</p>
+                      <label className="pairing-code">
+                        Manual pairing code
+                        <code data-testid="pairing-code">{pairing.code}</code>
+                      </label>
+                      <p className="caption">
+                        Expires {dateLabel(pairing.expiresAt)}. This link grants
+                        demo access; it is not clinical authentication.
+                      </p>
+                      {pairing.url.includes("localhost") && (
+                        <div className="notice">
+                          This link works on this computer only. Cross-device
+                          pairing needs a reachable HTTPS origin.
                         </div>
-                        <p>
-                          Scan with your phone’s camera, then confirm the
-                          profile.
-                        </p>
-                        <label className="pairing-code">
-                          Manual pairing code
-                          <code data-testid="pairing-code">{pairing.code}</code>
-                        </label>
-                        <p className="caption">
-                          Expires {dateLabel(pairing.expiresAt)}. This link
-                          grants demo access; it is not clinical authentication.
-                        </p>
-                        {pairing.url.includes("localhost") && (
-                          <div className="notice">
-                            This URL works on this computer only. Cross-device
-                            pairing requires a configured, reachable HTTPS
-                            development origin.
-                          </div>
-                        )}
+                      )}
+                      <div className="pairing-controls">
                         <Link className="text-button" href={pairing.url}>
                           Open pairing link <ArrowRight size={16} />
                         </Link>
-                        <div className="pairing-controls">
-                          <button
-                            className="text-button"
-                            disabled={pairingBusy}
-                            onClick={createPairing}
-                          >
-                            <RefreshCw size={14} />
-                            Replace code
-                          </button>
-                          <button
-                            className="text-button danger"
-                            disabled={pairingBusy}
-                            onClick={revoke}
-                          >
-                            Revoke access
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="pairing-placeholder">
-                          <ScanLine size={65} strokeWidth={1} />
-                        </div>
-                        <p>
-                          Create a private pairing link for this demo profile.
-                          Replacing it disconnects previously paired phones.
-                        </p>
                         <button
-                          className="button"
+                          className="text-button"
+                          type="button"
                           disabled={pairingBusy}
                           onClick={createPairing}
                         >
-                          {pairingBusy
-                            ? "Creating pairing…"
-                            : "Create pairing QR"}
-                          <ArrowRight size={17} />
+                          <RefreshCw size={14} />
+                          Replace code
                         </button>
-                      </>
-                    )}
-                  </section>
-                </div>
-                <section className="moments-section">
-                  <div className="section-title-row">
-                    <div>
-                      <span className="eyebrow">Everyday evidence</span>
-                      <h2>
-                        Listening moments{" "}
-                        <span className="count-pill">{events.length}</span>
-                      </h2>
-                    </div>
-                    <div className="report-actions">
-                      {report?.status === "ready" && report.url ? (
-                        <a className="button secondary" href={report.url}>
-                          <Download size={18} />
-                          Download PDF report
-                        </a>
-                      ) : (
                         <button
-                          className="button secondary"
-                          disabled={
-                            reportBusy ||
-                            report?.status === "queued" ||
-                            report?.status === "generating"
-                          }
-                          onClick={requestReport}
+                          className="text-button danger"
+                          type="button"
+                          disabled={pairingBusy}
+                          onClick={revoke}
                         >
-                          <ClipboardList size={18} />
-                          {report?.status === "queued" ||
-                          report?.status === "generating"
-                            ? "Preparing report…"
-                            : "Prepare PDF report"}
+                          Revoke access
                         </button>
-                      )}
+                      </div>
                     </div>
                   </div>
-                  {report?.status === "failed" && (
-                    <p className="notice error" role="alert">
-                      The report could not be prepared. Your listening moments
-                      are preserved. Try preparing an updated report after
-                      processing finishes.
+                ) : (
+                  <div className="clinic-pairing-empty">
+                    <p>
+                      Create a private pairing link. Replacing it later will
+                      disconnect previously paired phones.
                     </p>
-                  )}
-                  {report?.status === "outdated" && (
-                    <p className="notice" role="status">
-                      New information arrived after the report was requested.
-                      Prepare an updated report when processing finishes.
-                    </p>
-                  )}
-                  {events.length === 0 ? (
-                    <div className="empty-state compact glass">
-                      <h3>A first moment is waiting.</h3>
-                      <p>
-                        Pair a phone and choose either patient action. Real
-                        acoustic results will appear here after processing.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="detailed-events">
-                      {events.map((event) => (
-                        <article
-                          className="glass event-detail-card"
-                          id={"event-" + event.id}
-                          key={event.id}
-                        >
-                          <div className="event-detail-top">
-                            <span className={"moment-icon " + event.kind}>
-                              {event.kind === "understood" ? (
-                                <Check size={23} />
-                              ) : (
-                                <SlidersHorizontal size={23} />
+                    <button
+                      className="button"
+                      type="button"
+                      disabled={pairingBusy}
+                      onClick={createPairing}
+                    >
+                      {pairingBusy ? "Creating…" : "Create pairing QR"}
+                      <ArrowRight size={17} />
+                    </button>
+                  </div>
+                )}
+              </section>
+            )}
+
+            <div className="clinic-tabs" role="tablist" aria-label="Patient"
+              onKeyDown={(event) => {
+                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                event.preventDefault();
+                const next = event.key === "Home" ? "moments" : event.key === "End" ? "profile" : activeTab === "moments" ? "profile" : "moments";
+                setActiveTab(next);
+                if (next === "moments") setEditing(false);
+                event.currentTarget.querySelector<HTMLButtonElement>(`#tab-${next}`)?.focus();
+              }}>
+
+              <button
+                type="button"
+                role="tab"
+                id="tab-moments"
+                tabIndex={activeTab === "moments" ? 0 : -1}
+                aria-selected={activeTab === "moments"}
+                aria-controls="patient-moments"
+                className={activeTab === "moments" ? "active" : ""}
+                onClick={() => {
+                  setActiveTab("moments");
+                  setEditing(false);
+                }}
+              >
+                Moments
+                <span>{events.length}</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                id="tab-profile"
+                tabIndex={activeTab === "profile" ? 0 : -1}
+                aria-selected={activeTab === "profile"}
+                aria-controls="patient-profile"
+                className={activeTab === "profile" ? "active" : ""}
+                onClick={() => setActiveTab("profile")}
+              >
+                Profile
+              </button>
+            </div>
+
+            {activeTab === "moments" ? (
+              <section
+                id="patient-moments"
+                aria-labelledby="tab-moments"
+                className="moments-section clinic-moments"
+                role="tabpanel"
+              >
+                <aside className="clinic-about-note">
+                  <Info size={17} aria-hidden="true" />
+                  <p>
+                    <strong>About these results</strong>
+                    Acoustic details come from a phone recording. They are not
+                    calibrated sound pressure or clinical interpretation.
+                  </p>
+                </aside>
+                {events.length === 0 ? (
+                  <div className="empty-state compact clinic-empty-state">
+                    <h2>No moments yet</h2>
+                    <p>Pair a phone to record the first listening moment.</p>
+                  </div>
+                ) : (
+                  <div className="detailed-events clinic-moment-list">
+                    {events.map((event) => (
+                      <details
+                        className="glass event-detail-card clinic-moment-row"
+                        id={"event-" + event.id}
+                        key={event.id}
+                      >
+                        <summary className="clinic-moment-summary">
+                          <span className={"moment-icon " + event.kind}>
+                            {event.kind === "understood" ? (
+                              <Check size={21} />
+                            ) : (
+                              <SlidersHorizontal size={21} />
+                            )}
+                          </span>
+                          <span className="clinic-moment-name">
+                            <strong>
+                              {event.kind === "understood"
+                                ? "I understand"
+                                : "I don’t understand"}
+                            </strong>
+                            <small>
+                              {event.kind === "difficult"
+                                ? event.difficulty || "Difficulty reported"
+                                : "Positive listening moment"}
+                            </small>
+                          </span>
+                          <time dateTime={event.capturedAt}>
+                            {dateLabel(event.capturedAt)}
+                            <small>
+                              {new Date(event.capturedAt).toLocaleTimeString(
+                                "en",
+                                { hour: "2-digit", minute: "2-digit" },
                               )}
-                            </span>
-                            <div>
-                              <h3>
-                                {event.kind === "understood"
-                                  ? "I understand"
-                                  : "I don’t understand"}
-                              </h3>
-                              <span className="caption">
-                                {dateLabel(event.capturedAt)} ·{" "}
-                                {new Date(event.capturedAt).toLocaleTimeString(
-                                  "en",
-                                  { hour: "2-digit", minute: "2-digit" },
-                                )}
-                              </span>
-                            </div>
-                            <Status value={event.status} />
-                          </div>
+                            </small>
+                          </time>
+                          <Status value={event.status} />
+                          <ChevronDown
+                            className="clinic-moment-chevron"
+                            size={18}
+                            aria-hidden="true"
+                          />
+                        </summary>
+                        <div className="clinic-moment-details">
                           {event.kind === "difficult" && (
                             <div className="reported-answers">
                               <span>
-                                <small>Patient-reported difficulty</small>
-                                {event.difficulty}
+                                <small>Difficulty</small>
+                                {event.difficulty || "Not provided"}
                               </span>
                               <span>
-                                <small>Patient-reported surroundings</small>
-                                {event.environment}
+                                <small>Surroundings</small>
+                                {event.environment || "Not provided"}
                               </span>
                             </div>
                           )}
+                          <details className="clinic-acoustic-details">
+                            <summary>Acoustic details</summary>
                           {event.analysis ? (
                             <AcousticResult analysis={event.analysis} />
                           ) : (
-                            <p className="notice">
+                            <p
+                              className={
+                                "notice" +
+                                (event.status === "failed" ? " error" : "")
+                              }
+                              role={
+                                event.status === "failed" ? "alert" : "status"
+                              }
+                            >
                               {event.status === "failed"
                                 ? event.error ||
-                                  "Processing failed. The event is preserved."
-                                : "The server is processing this sample. You can leave this page."}
+                                  "Processing failed. The moment is preserved."
+                                : "Processing this recording…"}
                             </p>
                           )}
-                          <div className="interpretation-block">
-                            <h4>Astra interpretation</h4>
-                            <Status
-                              value={event.interpretation?.status || "pending"}
-                            />
-                            {event.interpretation?.result ? (
-                              <>
+                          {event.interpretation && !event.interpretation.result && (
+                            <p className="caption">
+                              Automated interpretation: <Status value={event.interpretation.status} />
+                            </p>
+                          )}
+                          {event.interpretation?.result && (
+                            <section className="interpretation-block clinic-interpretation">
+                              <div className="clinic-panel-heading">
+                                <h3>Interpretation</h3>
+                                <Status value={event.interpretation.status} />
+                              </div>
+                              {event.interpretation.result.summary && (
                                 <p>{event.interpretation.result.summary}</p>
-                                {event.interpretation.result.observations
-                                  ?.length && (
-                                  <ul>
-                                    {event.interpretation.result.observations.map(
-                                      (q, i) => (
-                                        <li key={i}>{q}</li>
-                                      ),
-                                    )}
-                                  </ul>
-                                )}
-                                {event.interpretation.result.limitations?.map(
-                                  (limit, i) => (
-                                    <p className="caption" key={i}>
-                                      {limit}
-                                    </p>
-                                  ),
-                                )}
-                              </>
-                            ) : (
-                              <p className="caption">
-                                {event.interpretation?.status === "unavailable"
-                                  ? "Astra is unavailable. The real acoustic features above remain available."
-                                  : "Interpretation is shown only after a complete, validated response. No fitting prescription is provided."}
-                              </p>
-                            )}
-                          </div>
-                          <details>
-                            <summary>
-                              Capture context and profile snapshot
-                            </summary>
+                              )}
+                              {!!event.interpretation.result.observations
+                                ?.length && (
+                                <ul>
+                                  {event.interpretation.result.observations.map(
+                                    (observation, index) => (
+                                      <li key={index}>{observation}</li>
+                                    ),
+                                  )}
+                                </ul>
+                              )}
+                              {event.interpretation.result.limitations?.map(
+                                (limit, index) => (
+                                  <p className="caption" key={index}>
+                                    {limit}
+                                  </p>
+                                ),
+                              )}
+                            </section>
+                          )}
+                          </details>
+                          <details className="clinic-capture-details">
+                            <summary>Capture and profile snapshot</summary>
                             <p className="caption">
                               Phone microphone intended. Actual routing may be
                               unknown. Snapshot:{" "}
@@ -902,12 +942,84 @@ export function PatientCard({ id }: { id: string }) {
                             </p>
                             <pre>{JSON.stringify(event.capture, null, 2)}</pre>
                           </details>
-                        </article>
-                      ))}
-                    </div>
-                  )}
-                </section>
-              </>
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                )}
+              </section>
+            ) : editing ? (
+              <section id="patient-profile" role="tabpanel">
+                <div className="clinic-edit-heading">
+                  <h2>Edit profile</h2>
+                  <button
+                    className="text-button"
+                    type="button"
+                    onClick={() => setEditing(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <PatientForm
+                  initial={patient}
+                  onSaved={(updated) => {
+                    setPatient(updated);
+                    setEditing(false);
+                  }}
+                />
+              </section>
+            ) : (
+              <section
+                id="patient-profile"
+                aria-labelledby="tab-profile"
+                className="glass overview-profile clinic-profile-panel"
+                role="tabpanel"
+              >
+                <div className="clinic-panel-heading">
+                  <h2>Profile</h2>
+                  <button
+                    className="button secondary"
+                    type="button"
+                    onClick={() => setEditing(true)}
+                  >
+                    <Pencil size={16} />
+                    Edit profile
+                  </button>
+                </div>
+                <div className="clinic-profile-meta">
+                  <span>
+                    <small>Follow-up</small>
+                    {dateLabel(patient.followUpDate)}
+                  </span>
+                  <span>
+                    <small>Timezone</small>
+                    {patient.timezone}
+                  </span>
+                </div>
+                <div className="clinic-profile-section">
+                  <h3>Audiogram</h3>
+                  <Audiogram data={patient.audiogram} />
+                </div>
+                <div className="clinic-profile-section">
+                  <h3>Hearing aids</h3>
+                  <div className="aid-pills">
+                    {(["left", "right"] as const).map(
+                      (ear) =>
+                        patient.aids[ear] && (
+                          <span key={ear}>
+                            <strong>{ear === "left" ? "L" : "R"}</strong>
+                            {patient.aids[ear]!.model} ·{" "}
+                            {patient.aids[ear]!.tier}
+                          </span>
+                        ),
+                    )}
+                  </div>
+                </div>
+                <div className="clinic-profile-section clinic-profile-note">
+                  <h3>Note</h3>
+                  <p>{patient.note || "No note added."}</p>
+                </div>
+              </section>
             )}
           </>
         )}
