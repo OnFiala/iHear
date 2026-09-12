@@ -112,6 +112,15 @@ Startup rejects a missing or mismatched manifest before changing services.
 Prepare and start reject Funnel, unexpected Serve hosts/ports/upstreams and unknown
 Serve configuration fields. Normal status output reports origin checks as booleans.
 
+With the custom domain active, both web services admit work to the same database
+and read the same application artifact. Before rebuilding that artifact, changing
+schema or stopping the stack, stop the domain connector and domain web service as
+well as the private web. Stopping only `ihear-web` no longer closes all admission.
+The domain validator pins the current application HEAD and BUILD_ID; a later app
+release must update and independently verify that binding before restarting the
+domain services. Follow the domain runbook and preserve the disabled ingress on
+failure. A routine application restart is not permission to bypass these pins.
+
 Before any update record remote HEAD, branch/detached state and dirty status.
 Preserve and reconcile unexpected changes. Fetch an explicitly reviewed source
 revision, prepare it, install changed units if needed, restart only affected
