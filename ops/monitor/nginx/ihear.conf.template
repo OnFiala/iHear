@@ -52,7 +52,9 @@ server {
     # Serve strips caller-supplied identity headers. Funnel provides none and fails closed.
     if ($http_tailscale_user_login != "__IHEAR_PRIVATE_LOGIN__") { return 403; }
 
-    limit_req zone=ihear_requests burst=40 nodelay;
+    # Allow a bounded cold-browser asset burst while keeping steady admission
+    # and active connections capped. App/DB mutation ceilings apply separately.
+    limit_req zone=ihear_requests burst=100 nodelay;
     limit_req_status 429;
     limit_conn ihear_connections 24;
     limit_conn_status 429;

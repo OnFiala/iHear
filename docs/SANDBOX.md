@@ -61,7 +61,7 @@ framework writes go to a private cache bind; temporary files use private `/tmp`.
 Memory is capped at 768 MiB, CPU at 150% of one core and tasks at 128. Do not add
 the account to the operator/Docker groups to repair a permission error.
 
-Private nginx enforces 20 requests/second globally, burst 40, 24 active requests,
+Private nginx enforces 20 requests/second globally, burst 100, 24 active requests,
 bounded timeouts and a 3 MiB body ceiling. Application and database admission add
 smaller body limits, scoped rate limits and finite retained-data/queue ceilings.
 These are local overload controls. Public volumetric DDoS protection requires the

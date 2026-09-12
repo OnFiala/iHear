@@ -64,7 +64,7 @@ removes caller-supplied identity headers before injecting its own; the applicati
 must remain behind this trusted loopback boundary. See the
 [Tailscale Serve identity contract](https://tailscale.com/docs/features/tailscale-serve).
 
-The private app admits an aggregate 20 requests/second with burst 40 and at most
+The private app admits an aggregate 20 requests/second with burst 100 and at most
 24 active requests. Exceeding admission returns 429. Limits use a shared server
 key, so new visitor cookies and spoofed forwarded IPs cannot create fresh buckets.
 Request headers, idle connections, body reads and upstream connections have timeouts;
