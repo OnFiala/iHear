@@ -334,3 +334,29 @@ owner approval. This update did not perform OS upgrades, another reboot, public
 DNS changes or Cloudflare activation. SECURITY.md records the remaining public
 release prerequisites. Independent source/security review is PASS; the final
 single-run browser evidence and public release remain PARTIAL and NO-GO respectively.
+
+
+## Clear Signal activation — 2026-09-12
+
+The reviewed runtime is `f3ab5a6fc5813f845ca44eef28f5e621eab907e3`.
+Next BUILD_ID is `leIR2dbOQwxwEI6VTkMTE`; the prepared/running worker image ID is
+`sha256:1194e36656497efb48039bf344232a8bfa6230e3365e4ce45249afe6b0584260`.
+The running and prepared platform manifest digests also match. Report version 3
+and migration `20260912161759` are active; pipeline remains 1 and API use is off.
+
+The private runtime backup is `.local/backups/clear-signal-20260912/`: database
+dump, environment, previous build manifest, previous Next artifacts, record hashes,
+deployment log and verified rollback bundle. Files are mode 0600 under a private
+directory. The previous worker image is retained as `ihear-worker:before-clear-signal`.
+Rollback branch `rollback/clear-signal-v2` at `f930658` is present on both authoring
+and runtime hosts. It has not been activated. Preserve its applied migration
+history and follow the report-version gate above if rollback is required.
+
+The admitted update preserved all pre-existing patient/event/analysis/report row
+hashes. After synthetic verification, 14 real-model analyses and three PDFs are
+ready; no unfinished job, raw audio object or API usage remains. Final browser
+coverage is 9/10 followed by a 2/2 profile/QR retry on unchanged runtime source.
+The QR fixture's first timeout is retained as an intermittent test limitation,
+not silently discarded. The current PDF's three pages (7,929 bytes) were inspected.
+Source/artifact identity, private ingress, monitoring and confined service limits
+pass. Existing security and physical-device limitations still apply.

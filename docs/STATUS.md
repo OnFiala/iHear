@@ -1,7 +1,7 @@
 # Implementation status
 
 Updated 2026-09-12. **Clear Signal implementation and local verification: PASS.
-Private Linux activation pending. Public application
+Private Linux activation: PASS. Browser coverage: PASS with one QR-fixture retry. Public application
 release: NOT RUN.** The selected direction retains the original 3D glass artwork.
 No public application or paid cloud resource is provisioned; interpretation API
 use remains intentionally disabled.
@@ -20,6 +20,45 @@ passed separately on the same visual build. Initial runs exposed two stale test
 selectors after the UI reshaping; these were corrected without weakening behavior
 assertions. The final date/pagination refinements also passed narrow verification: two browser
 scenarios, timezone parser regression cases and a three-moment pagination fixture.
+
+## Current Clear Signal deployment
+
+The private Linux sandbox is running reviewed commit
+`f3ab5a6fc5813f845ca44eef28f5e621eab907e3`. It has a clean detached checkout,
+a matching protected artifact manifest, Next build `leIR2dbOQwxwEI6VTkMTE`, and
+matching prepared/running worker image and platform manifest. Web and worker both
+use report template 3; pipeline version 1 is unchanged. The original 3D artwork
+served over the private origin matches the source bytes exactly.
+
+Before activation, the existing four profiles, ten events/analyses and two ready
+reports were backed up. Web admission stopped; unfinished job/report counts were
+zero both before and after stopping the old worker. The reviewed candidate and
+forward rollback commit `f930658` were present on Linux before the switch.
+Pre-existing patient/event/analysis/report hashes matched after activation.
+The additive v3 migration changed defaults only. No reset, unit replacement,
+public ingress, API activation or operating-system change was performed.
+
+The deployed browser suite passed 9/10 on its first run; the camera-fixture QR
+case timed out while the scanner remained active. An isolated profile-plus-scanner
+rerun passed 2/2 in 4.6 seconds on the same commit, without an application change.
+All ten scenarios therefore have passing deployed evidence, but this is not a
+claim of a single uninterrupted 10/10 run or a diagnosed fix for camera-test
+intermittency. Native-camera/physical iOS validation remains separate.
+
+The current-version PDF has three searchable pages and 7,929 bytes. All pages
+were inspected; the follow-up date, unavailable interpretation and measured
+48 kHz sample information are correct, with no footer-only page or orphaned
+moment heading. The final sandbox snapshot has six synthetic profiles, fourteen
+ready analyses with both real models ready, three ready PDFs (one v3), zero
+unfinished jobs, zero raw-audio objects and zero API usage. Additional rows belong
+to these verification workflows. Five app/proxy/monitor units are active; the
+web account, read-only source, 768 MiB memory, 150% CPU and 128-task limits remain.
+
+The final source handoff adds documentation only after this runtime commit.
+Application, worker, migrations, dependencies and service sources are identical;
+the valid runtime manifest is retained rather than changing it without a build.
+The prepared rollback is unactivated: its defaults were transactionally tested,
+but rollback activation and a physical power-loss test were not performed.
 
 ## Previous private sandbox milestone (historical evidence)
 

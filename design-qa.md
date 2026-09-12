@@ -93,3 +93,15 @@ is a P3 pagination refinement. No actionable P0/P1/P2 visual finding remains.
 - [x] Initial visual and behavior findings corrected and rechecked.
 - [x] Relevant automated behavior/accessibility and pagination checks pass.
 - [x] Remaining physical-device and public-release limits remain explicit.
+
+
+## Deployed follow-up
+
+The same visual is deployed at commit `f3ab5a6`. Private browser evidence passed
+9/10, with the simulated-camera QR case passing in an isolated 2/2 rerun. No UI
+change was made between those runs; camera-fixture intermittency remains explicit.
+`.local/clear-signal/linux-first-run/` retains the first deployed screenshots/PDF
+and QR failure trace; `.local/clear-signal/linux-report-1.png` through
+`linux-report-3.png` show all pages of the final current-version PDF. Its heading
+stays with its evidence, every page contains substantive text, and the calendar
+follow-up date matches the web. The served original 3D artwork matches source bytes.
