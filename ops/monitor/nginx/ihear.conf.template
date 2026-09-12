@@ -2,22 +2,23 @@
 # $uri is used only as input to a closed map; no raw path or query is emitted.
 map $uri $ihear_route_class {
     default                                      other;
-    =/                                           home;
-    =/clinic                                     clinic;
-    =/clinic/patients/new                        clinic_patient_new;
+    /                                           home;
+    /clinic                                     clinic;
+    /clinic/patients/new                        clinic_patient_new;
     ~^/clinic/patients/[^/]+/?$                  clinic_patient;
     ~^/pair/[^/]+/?$                             pair;
-    =/app                                        patient_home;
-    =/app/pair                                   patient_pair;
+    /app                                        patient_home;
+    /app/pair                                   patient_pair;
     ~^/app/events/[^/]+/?$                       patient_event;
-    =/api/session                                api_session;
+    /api/session                                api_session;
     ~^/api/pair/[^/]+/?$                         api_pair;
+    ~^/api/patients/[^/]+/pairing/?$              api_pair;
     ~^/api/events(?:/[^/]+)?/?$                  api_events;
     ~^/api/patients(?:/[^/]+)?/?$                api_patients;
     ~^/api/patients/[^/]+/report(?:/download)?/?$ api_report;
     ~^/_next/                                    static_asset;
-    =/sw.js                                      service_worker;
-    =/manifest.webmanifest                      manifest;
+    /sw.js                                      service_worker;
+    /manifest.webmanifest                      manifest;
 }
 
 map $cookie_ihear_visit $ihear_visitor {
