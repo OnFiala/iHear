@@ -949,7 +949,7 @@ export function PatientCard({ id }: { id: string }) {
                 )}
               </section>
             ) : editing ? (
-              <section id="patient-profile" role="tabpanel">
+              <section id="patient-profile" role="tabpanel" aria-labelledby="tab-profile">
                 <div className="clinic-edit-heading">
                   <h2>Edit profile</h2>
                   <button
