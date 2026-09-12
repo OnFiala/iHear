@@ -1,6 +1,10 @@
 # iHear operating contract
 Read this file at the start of every task. Canonical status: docs/STATUS.md; owner decisions: docs/DECISIONS.md.
 
+For the dedicated Ubuntu notebook runtime, use `.agents/skills/ihear-sandbox/SKILL.md`
+and `docs/SANDBOX.md`; exact private host identity is in ignored `.local/sandbox/host.json`.
+The MacBook is the authoring source and `/home/ondrej/iHear` is the Linux runtime.
+
 - All product UI, documentation, comments, fixtures, errors and reports are English. Progress to Ondrej is Czech.
 - Preserve the two-action patient experience. No unrelated features, frameworks or infrastructure.
 - Never invent measurements, device capabilities or clinical claims. Keep reports, DSP, model estimates and interpretation distinct. Clinical interpretation belongs to the clinician.

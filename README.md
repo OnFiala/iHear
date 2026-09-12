@@ -14,6 +14,12 @@ See [status](docs/STATUS.md), [decisions](docs/DECISIONS.md), [acceptance](docs/
 
 ## Run locally
 
+The dedicated always-on Ubuntu sandbox has its own [runbook](docs/SANDBOX.md)
+and project skill under `.agents/skills/ihear-sandbox`. It uses systemd, native
+Docker, private Tailscale HTTPS and a read-only operations dashboard. Interpretation
+API use is currently disabled. The following commands describe the MacBook
+development environment.
+
 Prerequisites: Node.js 22+, pnpm 10.33.2, Python 3 for the launcher, and a running Docker Desktop. The Python audio environment is built inside Docker; no host TensorFlow install is needed.
 
 ```bash

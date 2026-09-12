@@ -2,6 +2,16 @@
 
 ## A. Owner-approved decisions
 Approved in the implementation brief on 2026-09-11.
+
+2026-09-12 updates supersede the corresponding initial choices: operate without
+the interpretation API for now; use the existing Ubuntu ThinkPad as a dedicated
+private iHear sandbox; pause OpenClaw while preserving its data; prevent lid and
+idle sleep; provide a private host/application operations dashboard. The MacBook
+remains the authoring source. Store exact private machine identity in a project
+binding, with a project skill and `docs/SANDBOX.md` as the operating entrypoint.
+Visual redesign proposals are a separate task; this infrastructure work preserves
+the application UI.
+
 - Product name iHear; English-first application, documentation and reports.
 - Patient PWA and clinician web interface in one application. Public demo without a login screen.
 - Local implementation first; future public runtime independent of the MacBook.

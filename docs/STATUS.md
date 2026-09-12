@@ -2,6 +2,12 @@
 
 Updated 2026-09-11. **Local implementation and automated end-to-end verification: PASS. Physical iOS coverage: PARTIAL. Public application release: NOT RUN.** No public application or paid cloud resource was provisioned.
 
+2026-09-12 infrastructure update: the owner authorized a dedicated Ubuntu ThinkPad
+sandbox, no interpretation API, OpenClaw paused with data preserved, closed-lid
+operation and private operational monitoring. Linux integration is in progress;
+the canonical runbook is [SANDBOX.md](SANDBOX.md). The original local milestone
+evidence below describes the MacBook and must not be read as Linux runtime proof.
+
 ## Source and authority
 
 - Workspace: `/Users/ondrej/iHear`, MacBook development host, user/home `ondrej` / `/Users/ondrej`.
