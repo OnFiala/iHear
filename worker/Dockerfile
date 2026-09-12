@@ -22,6 +22,7 @@ COPY worker/src /app/worker/src
 COPY config /app/config
 
 RUN useradd --create-home --uid 10001 worker \
+    && chmod -R a+rX /app/worker /app/config \
     && install -d -o worker -g worker /models
 USER worker
 
