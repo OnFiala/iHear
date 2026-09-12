@@ -234,3 +234,65 @@ Automatic boot after complete power loss, long-duration thermal behavior and
 external outage notifications are unverified/unconfigured. The dashboard itself
 cannot send a notification while its host is offline. Physical iOS and hearing-aid
 limitations from ACCEPTANCE.md still apply.
+
+## Security integration evidence — 2026-09-12
+
+The security implementation was independently reviewed and installed on the
+existing private sandbox. Additive migration
+`20260912141939_sandbox_abuse_admission` sets finite database and queue ceilings;
+DATA_MODEL.md owns their exact values. The scheduler remains alive at saturation
+and resumes when a slot is freed. Browser growth admission and scheduled reports
+use consistent global-before-row lock ordering.
+
+| Check | Observed result |
+| --- | --- |
+| Source checks | 26 runtime-contract tests, 10 publication-scanner tests, 18 audio/backend tests, TypeScript and production build passed; 16 unchanged monitor tests passed in the initial integration |
+| Real PostgreSQL | Five integration suites passed on an isolated schema-only database with synthetic fixtures; live patient rows were not copied |
+| Actual Python scheduler | A separate integration probe filled the 50-report ceiling, returned normally at saturation, freed a slot and scheduled again despite an exhausted web-growth bucket |
+| Ubuntu worker | 41 tests passed in a freshly built x86_64 test image with no network/credentials and 1 CPU / 2 GiB; the separate opt-in database test was run against the isolated database |
+| Process confinement | 22 live checks passed: dedicated UID, no Docker group/capabilities, hidden operator home, unreadable environment file, read-only source/Node mounts, writable private cache and expected ingress/client-bundle behavior |
+| Owner ingress | Missing and different identities received 403; the owner received 200. Caller-supplied identity headers through Serve could not replace its authenticated owner header |
+| Bounded requests | On `57d2c1c`, a 3 MiB + 1 body received 413. 160 GET requests at concurrency 16 produced 104 HTTP 200 and 56 HTTP 429 responses, with no 5xx |
+| Client artifacts | 25 built static files contained no checked private DNS name, tailnet IP or owner login |
+| Data preservation | Pre-update counts were retained before new tests; final snapshot: 4 synthetic profiles, 10 events/ready real-model analyses, 2 ready PDFs, 0 unfinished jobs, raw audio objects or API usage |
+| Runtime binding | Clean source, protected manifest, prepared Next BUILD_ID and the running worker's platform manifest matched; final exact revision and IDs are in ignored operator evidence |
+
+The browser result is cumulative, not a clean ten-test run on the final revision.
+At `2b660c2`, nine tests passed and the camera-fixture QR test timed out; a targeted
+profile/QR scanner/revocation rerun passed 2/2. The trace also showed a rejected
+static asset, but it did not establish that as the cause of the camera timeout.
+The proxy burst was raised from 40 to 100 while retaining 20 requests/second,
+the 24-active-request ceiling and all backend limits.
+
+At `57d2c1c`, the final full run passed two accessibility/layout tests, then failed
+at new-workspace setup with application JSON 429; seven dependent tests did not
+run. Read-only database inspection confirmed all ten hourly workspace admissions
+had been consumed by repeated new contexts. No rate counter was changed or reset.
+All ten scenarios are covered across the recorded successful runs, while the
+single-run final-revision browser gate remains PARTIAL. For a future clean run,
+wait for the next UTC hourly window and run the suite once. Do not weaken live
+admission or recover a capability from traces to make a test pass.
+
+An earlier deployment exposed a real worker packaging failure: a restrictive
+checkout umask left newly copied Python files unreadable by the worker UID.
+`2b660c2` makes only the copied public worker/config files readable and traversable
+before switching to the unprivileged user. A fresh production image imported
+the real worker modules as UID 10001, and queued test audio then drained normally.
+The original failed run and later QR/quota failures remain in protected operator
+evidence; they were not erased or counted as passing tests.
+
+Docker 29's containerd image store distinguishes the top-level OCI index,
+platform manifest and container image/config identity. Compare the running
+container's `ImageManifestDescriptor.digest` with the prepared image descriptor
+for `linux/amd64`; separately compare the image index with the build manifest.
+Do not treat inequality between these different types of digest as source drift.
+
+Before applying the security migration, the operator saved a root-only database
+dump, source revision, environment, artifact manifest, nginx config and web unit
+under `/var/backups/ihear/`; the exact backup directory is kept in protected
+operator evidence. Stop only affected iHear services for recovery and preserve
+the newer database. Restoring a dump would replace newer data and needs explicit
+owner approval. This update did not perform OS upgrades, another reboot, public
+DNS changes or Cloudflare activation. SECURITY.md records the remaining public
+release prerequisites. Independent source/security review is PASS; the final
+single-run browser evidence and public release remain PARTIAL and NO-GO respectively.

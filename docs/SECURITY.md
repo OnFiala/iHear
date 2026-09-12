@@ -41,7 +41,8 @@ erased from public certificate records. Tailscale still restricts network access
 the owner identity gate is a separate control. This is documented by
 [Tailscale's HTTPS guidance](https://tailscale.com/docs/how-to/set-up-https-certificates).
 
-The reachable-history audit examined 259 blobs, including the security changes.
+The reachable-history audit before the final evidence update examined 259 blobs,
+including the security changes.
 No complete private tailnet address, observed host IP address, SSH alias, key
 fingerprint or key path was found. A short machine
 label appeared in older source; it was removed from current source. Existing

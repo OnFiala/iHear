@@ -1,7 +1,8 @@
 # Implementation status
 
-Updated 2026-09-12. **Private Linux sandbox and monitored closed-lid reboot: PASS.
-Local application end-to-end verification: PASS. Physical iOS coverage: PARTIAL.
+Updated 2026-09-12. **Private Linux sandbox security/source review: PASS.
+Closed-lid reboot: PASS in the initial deployment. Final-revision browser run: PARTIAL.
+All ten browser scenarios passed across recorded runs. Physical iOS coverage: PARTIAL.
 Public application release: NOT RUN.** No public application or paid cloud resource
 was provisioned. Interpretation API use is intentionally disabled.
 
@@ -10,17 +11,32 @@ scanner tests, 18 audio/backend tests, 41 worker unit tests, five real PostgreSQ
 integration suites and a separate real scheduler saturation/recovery test passing.
 It adds private-origin redaction, observed-IP publication checks, live ingress drift
 reporting, owner-only application ingress, a confined web account, request limits
-and finite database growth. Live installation acceptance is pending below.
+and finite database growth. Live confinement, owner-only ingress, 403/413/429
+responses, private client-bundle checks and source/artifact parity passed.
+The final bounded burst produced 104 HTTP 200 and 56 HTTP 429 responses, with
+no 5xx, from 160 requests at concurrency 16. This is an overload-control probe,
+not a public-capacity or volumetric DDoS benchmark.
 The private/public boundary and proposed hostname are in [SECURITY.md](SECURITY.md).
+
+Browser evidence is deliberately cumulative: the worker repair revision passed
+9/10 in one run; the isolated profile/QR-scanner rerun passed 2/2. After the proxy
+burst adjustment, two accessibility/layout tests passed, then `/api/session`
+returned the expected JSON 429 because repeated test contexts had used all ten
+new-workspace admissions in that UTC hour. One setup test failed and seven
+dependent tests did not run. The live quota was neither lowered nor reset.
+See SANDBOX.md for the preserved failures and final verification boundaries.
 
 The dedicated Ubuntu ThinkPad runs independently of the MacBook. OpenClaw is
 disabled/stopped with its data retained. The initial accepted runtime checkout was
 `07c57099c1b28ded53f938753e339ee5adc8aaa9`; its protected manifest matches the
 then-running worker image and Next build. The following security update changes
 the runtime; its deployment and acceptance evidence are recorded separately.
-The canonical operating entrypoint is [SANDBOX.md](SANDBOX.md).
+The canonical operating entrypoint is [SANDBOX.md](SANDBOX.md). The final security
+snapshot has ten ready real-model analyses, two ready PDFs, no unfinished jobs,
+no raw audio objects and no API usage. Existing pre-update data was preserved;
+the additional rows belong to synthetic verification workflows.
 
-Linux evidence: 11 runtime-contract tests, 16 monitor tests, 39 isolated x86_64
+Initial Linux evidence: 11 runtime-contract tests, 16 monitor tests, 39 isolated x86_64
 worker tests and 10 browser end-to-end tests passed. Four synthetic events have
 real ready Silero/YAMNet results; one PDF is ready; no raw audio object, unfinished
 job or API usage remains. The approved reboot at 13:48:18 UTC returned all services
@@ -36,7 +52,7 @@ not be read as additional current Linux or physical-phone proof.
 
 - Workspace: `/Users/ondrej/iHear`, MacBook development host, user/home `ondrej` / `/Users/ondrej`.
 - Verified GitHub account: `OnFiala`, ID `202789334`. Public proprietary repository: https://github.com/OnFiala/iHear. Licensing is in LICENSE; this is not an open-source release.
-- `implementation/local-milestone` is the coherent implementation branch, rooted in initial documentation commit `1279a48`. Final integration fast-forwards `main` to the same reviewed handoff commit and publishes both refs without rewriting history. Use `git rev-parse HEAD` / `git log -1` for the precise checkout revision.
+- `main` is the integrated source. The initial application milestone is preserved on `implementation/local-milestone`; the dedicated sandbox/security work is on `infrastructure/linux-sandbox` and integrated by fast-forward without rewriting history. Use `git rev-parse HEAD` / `git log -1` for the precise checkout revision. The deployed runtime has a separate protected artifact manifest; a GitHub ref alone is not runtime evidence.
 - Significant implementation commits include `235b33a` (backend), `25a997b` (attempt fencing), `5f18115` (worker), `8d06a17` (report v2) and `60cbfb0` (local/cloud configuration). The final evidence commit follows these.
 - Public source publication and local operation were authorized. Hosted Vercel/Supabase/Render resources, paid provisioning and public application deployment still require owner approval.
 

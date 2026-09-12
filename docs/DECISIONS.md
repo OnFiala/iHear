@@ -17,8 +17,10 @@ main project and runtime, with direct connection details excluded from public
 artifacts and explicit protection against abuse before Product Hunt exposure.
 `docs/SECURITY.md` owns this boundary. The current sandbox stays private; public
 source publication does not authorize public application activation. A protected
-public domain through an outbound tunnel is a proposal pending domain/account,
-isolation, admission, capacity and deployment evidence.
+public domain through an outbound tunnel is a proposal pending public isolation,
+edge controls, capacity and deployment approval. Read-only account inspection
+confirmed both owner domains and the existing Cloudflare zone for `ofops.co`;
+`ihear.ofops.co` is the proposed public hostname. No DNS or tunnel was changed.
 
 - Product name iHear; English-first application, documentation and reports.
 - Patient PWA and clinician web interface in one application. Public demo without a login screen.
@@ -37,7 +39,7 @@ isolation, admission, capacity and deployment evidence.
 - Opaque random, hashed server-side capabilities in HttpOnly cookies: workspace owner and patient-scoped pairing. No browser service key.
 - Separate durable DSP, interpretation and report records. Transactional job idempotency by event and pipeline version.
 - JSON profile snapshots stored with events; original audiograms are clinician-entered synthetic examples.
-- Development implementation branch: `implementation/local-milestone`, based on the initial main documentation commit `1279a48`. Reviewed local integration fast-forwards `main`; both refs publish the same milestone without rewriting remote history.
+- `main` integrates reviewed work without rewriting history. `implementation/local-milestone` preserves the first application milestone; `infrastructure/linux-sandbox` carries the subsequent dedicated runtime and security changes. Runtime identity is checked separately against its protected artifact manifest.
 - A private Tailscale Serve HTTPS origin supports cross-device local testing. It is neither a public deployment nor a future runtime dependency.
 - Jobs use renewable Postgres leases and pgmq visibility, bounded retries, independent DSP persistence and idempotent audio deletion. Stale report revisions cannot publish as current.
 - Each claim uses a fresh immutable UUID as lease authority. PDF paths include that attempt UUID; a late process cannot delete or publish another attempt's file. Already-ready reports reconcile completion without regeneration.
