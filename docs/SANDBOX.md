@@ -136,7 +136,8 @@ rollback worker consuming unfinished newer reports). Before checkout/build:
 1. Verify host binding, clean HEAD, service owner and protected artifact manifest.
    Save a mode-0600 database dump, current environment and artifact manifest in the
    ignored runtime backup directory. Retain existing storage objects and volumes.
-2. Stop only `ihear-web.service` to close new user admission. Keep the current
+2. Stop `ihear-domain-tunnel.service`, `ihear-domain-web.service` and
+   `ihear-web.service` to close both entry points. Keep the current
    worker running until all jobs in `queued`, `retry` or `running` and all reports
    in `queued` or `generating` have finished. Do not reset quotas or alter job rows.
 3. Stop the worker container gracefully, leaving Supabase up. Recheck both counts
@@ -145,8 +146,9 @@ rollback worker consuming unfinished newer reports). Before checkout/build:
 4. Fetch/check out the reviewed commit and apply its additive migration during
    `scripts/linux.py prepare`. Build artifacts from that clean commit and align
    `REPORT_VERSION`. Version 3 preparation enforces 3 in both web and worker.
-5. Activate the prepared worker with `scripts/linux.py start`, then start the web
-   service. Existing systemd/nginx units are reused when unchanged. Verify the
+5. Advance and verify the root domain HEAD/build binding for this exact release.
+   Activate the prepared worker with `scripts/linux.py start`, start both web
+   services, verify readiness, then resume the domain connector. Existing systemd/nginx units are reused when unchanged. Verify the
    manifest, prepared/running image identity, Next build and preserved records.
 6. Verify real new results and a current-version PDF through the private origin,
    unchanged API-off state, empty work queue and removal of successful raw audio.

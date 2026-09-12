@@ -2,20 +2,20 @@
 
 Updated 2026-09-12. **Clear Signal implementation and local verification: PASS.
 Private Linux activation: PASS. Owner-only custom domain activation: PASS.
-Browser coverage: PASS with one historical QR-fixture retry. Anonymous public
+Current release browser coverage: 12/12 PASS. Anonymous public
 release: NOT RUN.** The selected direction retains the original 3D glass artwork.
 The owner can use `https://ihear.ofops.co` through Cloudflare Access. The dedicated
 tunnel and isolated origin are active and enabled at boot. Anonymous application
 access remains disabled. No paid feature was enabled; interpretation API use
 remains intentionally disabled.
 
-The current candidate includes the patient Record/History split, compact clinician
+The earlier Clear Signal milestone introduced the patient Record/History split, compact clinician
 Moments/Profile review, accessible pairing/settings, and PDF template 3. Version 1/2
 PDFs remain historical. The visual review also found and fixed a pre-existing date
 serialization defect: PostgreSQL DATE must retain its local calendar day instead
 of shifting through UTC. Prague, New York and UTC regression cases pass.
 
-Local checks: 19 audio/backend tests, five real Postgres suites, 36 runtime/source
+Earlier Clear Signal checks: 19 audio/backend tests, five real Postgres suites, 36 runtime/source
 scanner tests and 43 worker tests passed (one model-artifact probe skipped in the
 network-isolated unit image). Production build/typecheck passed. The eight linked
 browser scenarios passed in 51.9 seconds; the two accessibility/WebKit scenarios
@@ -24,11 +24,11 @@ selectors after the UI reshaping; these were corrected without weakening behavio
 assertions. The final date/pagination refinements also passed narrow verification: two browser
 scenarios, timezone parser regression cases and a three-moment pagination fixture.
 
-## Patient access and acoustic detail update — candidate, 2026-09-12
+## Patient access and acoustic detail update — active, 2026-09-12
 
 The owner requested Home Screen access, remembered microphone opt-in, richer
 clinician recording evidence and consistent typography/forms. The reviewed
-candidate implements these on the existing private deployment, with API use off.
+release implements these on the existing private deployment, with API use off.
 The newest clinician moment is expanded and presents measured levels, sample
 properties, frequency bands, model scores and available time detail. It separates
 patient-reported context from model estimates and no longer labels a weak digital
@@ -49,7 +49,31 @@ scenarios in 50.5 seconds, including its aggregation identity and expanded
 clinician evidence at 390 px with automated WCAG checks. Historical cached PDF bytes/text remain unchanged;
 new generation uses the corrected quality wording.
 
-Deployed identity will be recorded after activation.
+Reviewed application release `84a861af01bcaa1f6005e2ebe3cbdf762f7a08b6` is active
+on both private origins with Next build `vrclRcrqs6WcRp_qkOH9O`. The Linux checkout
+is clean and detached; source, protected manifest, actual worker image and both
+root domain bindings agree. Both entry points were closed, jobs/reports drained
+and checked again after stopping the worker, and a database dump, old web build,
+worker image and protected configuration receipts were backed up. No migration
+was added and no database reset occurred. Root Access/build receipts were advanced
+atomically; the same tunnel protection, service confinement and API-off setting
+remain. The automatic rollback path was reviewed but was not activated in this
+successful deployment.
+
+All 12 deployed browser scenarios passed in one 1.4-minute run on the existing
+private origin, with fake media and real backend/model processing. The authenticated
+owner browser on `ihear.ofops.co` separately showed the corrected historical
+recording evidence and Home Screen guidance. Eleven anonymous/invalid-credential
+edge probes still denied access. Desktop and 390 px clinician evidence screenshots
+were inspected. Physical phone installation and OS permissions remain unverified.
+
+All 48 pre-existing patient/event/analysis/report rows retained their hashes.
+The synthetic acceptance workflow added one profile, four events/analyses and one
+report: nine profiles, 22 events, 22 analyses, five reports, four new detailed
+analyses, zero unfinished jobs, zero raw-audio objects and zero API calls. These
+are runtime acceptance counts, not public capacity claims. The final source handoff
+after this application commit changes documentation only. Historical cached PDFs
+may retain earlier quality wording; new generation uses the corrected labels.
 
 ## Owner-only custom domain — active, 2026-09-12
 
@@ -69,8 +93,8 @@ setting was changed.
 After the initial automatic-review hold, the owner explicitly confirmed transfer
 of this tunnel credential. Operations source
 `3387c92406c100f22e25f67a9357c4de1d06a18e` was installed separately under
-`/opt/ihear-domain`; the application checkout and artifact remain frozen at the
-revision below. The credential is root-owned 0400 under a root-owned 0700 directory.
+`/opt/ihear-domain`; that initial activation preserved the earlier application
+revision below. The subsequent application update is recorded above. The credential is root-owned 0400 under a root-owned 0700 directory.
 Its temporary MacBook source copy was removed. The existing BUILD_ID file mode
 was tightened from 0664 to 0644 without changing its contents. No database
 migration, worker change or private web restart occurred.
@@ -118,9 +142,9 @@ on the original private origin; cookies/data were not remapped. Physical iOS
 validation and anonymous public release remain separate milestones. See the
 [domain operations runbook](../ops/domain/README.md).
 
-## Current Clear Signal deployment
+## Earlier Clear Signal deployment (superseded application)
 
-The private Linux sandbox is running reviewed commit
+The earlier private Linux sandbox release ran reviewed commit
 `f3ab5a6fc5813f845ca44eef28f5e621eab907e3`. It has a clean detached checkout,
 a matching protected artifact manifest, Next build `leIR2dbOQwxwEI6VTkMTE`, and
 matching prepared/running worker image and platform manifest. Web and worker both

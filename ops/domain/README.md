@@ -5,12 +5,15 @@ verified Linux iHear runtime. Current activation/evidence is in
 [STATUS.md](../../docs/STATUS.md); [SECURITY.md](../../docs/SECURITY.md) owns the
 access boundary. Anonymous public access is not authorized.
 
-## Frozen installation
+## Frozen initial installation
 
 The installer pins application HEAD `f3ab5a6fc5813f845ca44eef28f5e621eab907e3`
 and Next BUILD_ID `leIR2dbOQwxwEI6VTkMTE`. It uses the existing artifact, database,
 worker and disabled interpretation API. The separate operations source revision
-must be recorded without changing the private checkout or its artifact manifest.
+was recorded without changing the private checkout or its artifact manifest.
+These are initial-install pins, not the current release identity. Do not rerun
+this installer for an application update; use the protected current binding and
+the update procedure below.
 
 A root-owned mode-0700 candidate directory contains the exact reviewed files and
 the pinned official cloudflared 2026.9.1 Linux amd64 artifact. Its SHA-256 is
@@ -57,6 +60,32 @@ or a substitute for fresh Cloudflare Access and runtime observations.
    existing workspaces/data; use bounded synthetic acceptance inputs.
 6. Test disable-only rollback and the unchanged private route. Enable the two
    new units at boot only after complete acceptance. Record unrun checks openly.
+
+## Updating the shared application
+
+Current application HEAD/build and acceptance are recorded in STATUS.md. The
+installed operations files remain a separate reviewed source. For an authorized
+application update, record clean source/manifest/service identity and back up the
+current environment, manifest, worker image, web artifact and database. Preserve
+root-owned copies of both `/etc/ihear-domain/access.json` and `operations.json`;
+never copy the tunnel credential into an application backup.
+
+Stop the connector and both web services, drain jobs/reports with the old worker,
+stop it gracefully, then recheck for scheduler-produced work. Prepare the exact
+reviewed application commit with the canonical Linux launcher. Advance only the
+expected application HEAD and BUILD_ID in the root Access binding using an atomic
+replacement. Keep Access audience, team, origin and credential fields unchanged.
+Verify the installed preflight, start the worker and both web processes, check
+readiness, then resume the connector. Verify real new synthetic analysis/PDF,
+old records and access rejection. Record the new application release separately
+in the operations receipt, preserving the original installation provenance.
+
+For an update without schema/version changes, retain the exact old application
+source, web artifact, environment, manifest and worker image. A failed acceptance
+closes all admission again and restores those artifacts plus both root receipts
+atomically. Do not restore/reset the database. Schema/version changes require
+the separate compatibility and queue-drain procedure in SANDBOX.md. The reviewed
+2026-09-12 update completed successfully; its automatic rollback was not invoked.
 
 ## Disable-only rollback
 
