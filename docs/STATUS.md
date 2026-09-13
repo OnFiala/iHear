@@ -1,5 +1,12 @@
 # Implementation status
 
+This branch is a prepared forward rollback for the dual-guidance v4 release. It
+restores the prior v3 application source while retaining the applied v4 migration
+and adding an explicit default-v3 migration. It has not been activated. Admission
+must close and all jobs/reports must drain before preparation and activation;
+retain database rows, storage objects and protected root domain bindings.
+
+
 Updated 2026-09-12. **Clear Signal implementation and local verification: PASS.
 Private Linux activation: PASS. Owner-only custom domain activation: PASS.
 Current release browser coverage: 12/12 PASS. Anonymous public
