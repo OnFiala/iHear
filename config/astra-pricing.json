@@ -1,7 +1,7 @@
 {
   "model": "gpt-6-astra",
   "source": "https://developers.openai.com/api/docs/pricing",
-  "verified_at": "2026-09-11",
+  "verified_at": "2026-09-13",
   "threshold_input_tokens": 272000,
   "standard_usd_per_million_tokens": {
     "input": 10.0,
@@ -15,7 +15,8 @@
     "input_token_count_endpoint": "/v1/responses/input_tokens",
     "max_input_tokens_reserved": 8000,
     "max_output_tokens": 1200,
-    "maximum_cost_usd": 0.16
+    "maximum_cost_usd": 0.16,
+    "service_tier": "default"
   },
   "application_limits_usd": {
     "global_total": 20.0,

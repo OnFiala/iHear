@@ -5,7 +5,9 @@ import pytest
 
 from pypdf import PdfReader
 
-from ihear_worker.report import generate_report
+from ihear_worker.report import (
+    _current_device_action_guidance, _recommendation_display, generate_report,
+)
 
 
 def _text(report: bytes) -> tuple[PdfReader, str]:
@@ -180,4 +182,136 @@ def test_incomplete_report_keeps_unavailable_measurements_and_interpretation_vis
     assert "Unknown sound (0.00)" not in text
 
 
+def test_v2_report_separates_clinician_and_patient_guidance_with_sourced_actions() -> None:
+    aids = {
+        "side": "bilateral",
+        "left": {"model": "Widex ALLURE BTE R D", "tier": "220"},
+        "right": {"model": "Widex ALLURE BTE R D", "tier": "220"},
+        "app": {
+            "name": "Widex Allure", "version": "1.2.3",
+            "confirmedActions": ["allure_equalizer"],
+        },
+    }
+    catalog = {
+        "illustrativeTiers": ["110", "220", "330", "440"],
+        "appActions": [{
+            "id": "allure_equalizer",
+            "title": "Compare sound with the equalizer",
+            "instruction": "Compare a small change with the original sound and restore it if less helpful.",
+            "source": "https://www.widex.com/en/hearing-aids/apps/allure-app/",
+            "checkedAt": "2026-09-13",
+            "supportedModels": ["Widex ALLURE BTE R D"],
+            "verificationStatus": "verified_app_control_requires_confirmation",
+        }],
+    }
+    report = generate_report(
+        {
+            "display_name": "Synthetic Guidance Patient",
+            "follow_up_date": "2026-10-01",
+            "timezone": "Europe/Prague",
+            "audiogram": {"frequencies": [250], "left": [30], "right": [35]},
+            "aids": aids,
+        },
+        [{
+            "id": "guidance-event",
+            "kind": "difficult",
+            "difficulty": "Following one person",
+            "environment": "Background conversation",
+            "captured_at": "2026-09-13T08:00:00Z",
+            "profile_snapshot": {"aids": deepcopy(aids)},
+            "analysis": {
+                "bands": [{"low_hz": 250, "high_hz": 500, "relative_energy": 0.25}],
+            },
+            "interpretation_status": "ready",
+            "interpretation_model": "gpt-6-astra",
+            "interpretation_prompt_version": "ihear-event-v2",
+            "interpretation": {
+                "summary": "The reported difficulty can be reviewed alongside the recorded acoustic context.",
+                "observations": ["The patient reported difficulty in background conversation."],
+                "tip_ids": ["share_clinician"],
+                "limitations": ["Phone audio is uncalibrated."],
+                "recommendations": [{
+                    "text": "Ask whether the same difficulty occurs in a controlled speech-in-noise task.",
+                    "evidence_refs": ["reported_event", "band:0"],
+                }],
+                "frequency_notes": [{
+                    "band_index": 0,
+                    "explanation": "Relative energy was present in this uncalibrated band.",
+                    "review_question": "Does this pattern recur across difficult moments?",
+                }],
+                "patient_summary": "Your recording gives your clinician useful context; it is not a hearing test.",
+                "device_action_ids": ["allure_equalizer"],
+                "device_actions": [{
+                    "id": "allure_equalizer",
+                    "title": "Malicious stored title",
+                    "instruction": "Malicious stored instruction",
+                    "source": "https://attacker.invalid/",
+                    "checkedAt": "1900-01-01",
+                }],
+            },
+        }],
+        input_revision=8,
+        device_catalog=catalog,
+    )
+    _, text = _text(report)
+    assert "AI guidance for clinician review" in text
+    assert "AI-generated from bounded evidence; clinician review is required" in text
+    assert "Model: gpt-6-astra; prompt: ihear-event-v2" in text
+    assert "Follow-up questions or options" in text
+    assert "Supporting evidence: patient-reported event, 250-500 Hz relative band" in text
+    assert "250-500 Hz" in text
+    assert "Review question" in text
+    assert "AI listening note for the patient" in text
+    assert "Compare sound with the equalizer" in text
+    assert "https://www.widex.com/en/hearing-aids/apps/allure-app/" in text
+    assert "checked 2026-09-13" in text
+    assert "Malicious stored" not in text
+    assert "attacker.invalid" not in text
+
+
 APPROVED_TIP_TEXT = "If you can, move to a quieter place."
+
+
+def test_report_hides_stale_device_actions_when_current_confirmation_changed() -> None:
+    recorded = {
+        "side": "left",
+        "left": {"model": "Widex ALLURE BTE R D", "tier": "220"},
+        "right": None,
+        "app": {"name": "Widex Allure", "version": "1.2", "confirmedActions": ["allure_equalizer"]},
+    }
+    current = deepcopy(recorded)
+    current["app"]["confirmedActions"] = []
+    rendered, notice = _current_device_action_guidance(
+        ["allure_equalizer"], {"aids": recorded}, current, {},
+    )
+    assert rendered == []
+    assert notice and "changed after this moment" in notice
+
+
+def test_report_treats_confirmed_action_order_as_semantically_equal() -> None:
+    recorded = {
+        "side": "left",
+        "left": {"model": "Widex ALLURE BTE R D", "tier": "220"},
+        "right": None,
+        "app": {
+            "name": "Widex Allure", "version": "1.2",
+            "confirmedActions": ["allure_programs", "allure_equalizer"],
+        },
+    }
+    current = deepcopy(recorded)
+    current["app"]["confirmedActions"] = ["allure_equalizer", "allure_programs"]
+    rendered, notice = _current_device_action_guidance(
+        ["allure_equalizer"], {"aids": recorded}, current, None,
+    )
+    assert rendered == []
+    assert notice and "verified device catalog is unavailable" in notice
+
+
+def test_report_rejects_model_url_and_unknown_evidence_reference() -> None:
+    analysis = {"bands": [{"low_hz": 250, "high_hz": 500}]}
+    assert _recommendation_display(
+        {"text": "Review https://example.invalid", "evidence_refs": ["reported_event"]}, analysis,
+    ) is None
+    assert _recommendation_display(
+        {"text": "Review the reported event.", "evidence_refs": ["provider_link"]}, analysis,
+    ) is None

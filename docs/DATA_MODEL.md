@@ -7,10 +7,10 @@ This document is the exact backend contract for the local milestone. The migrati
 - `AUDIO_BUCKET=ihear-audio`, private, WAV only, 2,202,000-byte object limit.
 - `REPORT_BUCKET=ihear-reports`, private, PDF only, 10 MB Storage limit; worker generation and web delivery enforce the tighter 4,000,000-byte limit.
 - `QUEUE_NAME=ihear_jobs`, a durable logged pgmq queue.
-- `PIPELINE_VERSION=1`, `REPORT_VERSION=3`.
+- `PIPELINE_VERSION=1`, `REPORT_VERSION=4`.
 - Audio object key: `<workspace_id>/<patient_id>/<event_id>.wav`.
 - Report object key: `<workspace_id>/<patient_id>/<report_id>/<attempt_id>.pdf`.
-- Queue payload: `{"jobId":"<uuid>","kind":"event_analysis|report","version":number}`; event jobs use pipeline version 1, new report jobs use template version 3. The database row, not the queue message, is authoritative.
+- Queue payload: `{"jobId":"<uuid>","kind":"event_analysis|report","version":number}`; event jobs use pipeline version 1, new report jobs use template version 4. The database row, not the queue message, is authoritative.
 
 The server reads these five values from environment variables and defaults to the listed local values. It rejects a runtime override that does not match the committed runtime contract. The prepare command applies its matching migration; startup constants alone do not inspect live database schema identity. A future rename/version bump therefore requires a migration and runtime configuration change together.
 
@@ -35,6 +35,8 @@ Owner capabilities have no `patient_id` and do not expire. Patient capabilities 
 `id uuid primary key`, `workspace_id uuid not null`, `display_name text`, `audiogram jsonb`, `aids jsonb`, `follow_up_date date`, `note text`, `timezone text default 'Europe/Prague'`, `profile_version integer default 1`, `report_revision bigint default 1`, `search_vector tsvector`, `created_at timestamptz`, `updated_at timestamptz`.
 
 The profile update trigger increments `profile_version` and `report_revision`. Event insert/delete and report-visible event updates also increment `report_revision`; analysis and interpretation changes have their own invalidation triggers. Historical events retain their original `profile_snapshot`. `search_vector` covers display name and note.
+
+The optional `aids.app` JSON object stores `{name:"Widex Allure",version:string,confirmedActions:string[]}`. Absence is valid for historical profiles. Nonempty confirmations require a recorded app version, both worn models in the supported catalog, a recognized illustrative tier and unique approved control IDs. The clinician confirms availability in this patient's configured app; neither the tier label nor generic manufacturer documentation alone establishes availability. Model, side, tier or app-version changes clear form confirmations. Current profile confirmation changes invalidate reports as usual.
 
 ### `ihear.pairing_tokens`
 
@@ -91,15 +93,32 @@ PDF bytes remain historical and unchanged.
 
 `id uuid primary key`, `workspace_id uuid not null`, `patient_id uuid not null`, `event_id uuid not null`, `analysis_id uuid not null`, `pipeline_version integer`, `model text`, `prompt_version text`, `status text` (`held_ambiguity`, `held_budget`, `ready`, `failed`, `unavailable`, `skipped`), `result jsonb null`, `provenance jsonb`, `error text null`, `api_usage_id uuid null`, `created_at timestamptz`, `updated_at timestamptz`, unique `(analysis_id, model, prompt_version)`.
 
-No interpretation is attempted when deterministic evidence is ambiguous. That state is persisted as `held_ambiguity`, without a budget reservation.
+New interpretation attempts use `model=gpt-6-astra` and `prompt_version=ihear-event-v2`.
+The ready JSON retains `summary`, `observations`, `tip_ids`, `limitations` and adds
+`recommendations`, `frequency_notes`, `patient_summary`, `device_action_ids` and
+server-expanded `device_actions`. Frequency notes reference an actual analysis
+band index; device IDs must belong to the exact prepared input allowlist.
+
+Web and report readers bind to the event's current pipeline analysis, prefer its
+v2 interpretation, and fall back to its v1 record. This yields one event row;
+unknown models, prompt versions and other analyses do not supply its guidance.
+Historical terminal events are not automatically requeued for another paid attempt.
+The patient event API exposes only the patient summary, tip IDs and action IDs,
+plus `currentAids` from the authorized patient profile. Clinician prose stays in
+the owner response. Device guidance compares current configuration and confirmations
+with the event snapshot; changed or missing configuration suppresses the action.
+
+No interpretation is attempted when deterministic evidence is ambiguous. That
+state is persisted as `held_ambiguity`, without a budget reservation. Missing API
+credentials are handled first as `unavailable`, also without reservation.
 
 ### `ihear.reports`
 
-`id uuid primary key`, `workspace_id uuid not null`, `patient_id uuid not null`, `input_revision bigint`, `report_version integer default 3`, `status text` (`queued`, `generating`, `ready`, `failed`), `object_path text null unique`, `error text null`, `created_at timestamptz`, `updated_at timestamptz`, unique `(patient_id, input_revision, report_version)`.
+`id uuid primary key`, `workspace_id uuid not null`, `patient_id uuid not null`, `input_revision bigint`, `report_version integer default 4`, `status text` (`queued`, `generating`, `ready`, `failed`), `object_path text null unique`, `error text null`, `created_at timestamptz`, `updated_at timestamptz`, unique `(patient_id, input_revision, report_version)`.
 
 POST creates at most one report and one job for the current `(patient_id, report_revision, REPORT_VERSION)`. GET only reads status. The download API streams the private object after owner authorization.
 
-Template version 3 adds the Clear Signal chronological layout while retaining the version 2 evidence boundaries, clinic-local timestamps and honest empty-chart state. Version 1/2 records remain historical; they are never reused as a current version 3 report. If prior reports exist but the current revision/version does not, the UI receives `outdated` and offers updated preparation. An already-ready old report can still reconcile its unfinished job without being regenerated or downgraded.
+Template version 4 adds explicitly labelled AI clinician and patient guidance to the Clear Signal chronological layout. Version 1/2/3 records remain historical; they are never reused as a current version 4 report. If prior reports exist but the current revision/version does not, the UI receives `outdated` and offers updated preparation. An already-ready old report can still reconcile its unfinished job without being regenerated or downgraded.
 
 ### `ihear.jobs`
 
@@ -193,7 +212,17 @@ On 2026-09-11, the CLI-named migrations applied to the local Supabase stack with
 
 A separate live HTTP check loaded the local public key only in process memory and used an existing private report object. Anonymous database select and insert were denied; anonymous Storage list did not reveal the object; upload and direct download were denied. No probe write succeeded and no private payload or key was printed.
 
-## Report template 3 compatibility
+## Report template 4 compatibility
+
+Migration `20260913190936_dual_guidance_report_template_v4.sql` changes only the
+report table default and the two SQL report wrapper defaults from 3 to 4. Existing
+function identities and ACLs remain; no stored rows, PDF bytes or API reservations
+are rewritten. New web and worker processes require `REPORT_VERSION=4`; pipeline
+version stays 1. Explicit old report identities remain distinct and downloadable.
+Both entry points must stop admitting work, then jobs and reports must drain
+before switching consumers. See SANDBOX.md for forward rollback requirements.
+
+## Historical report template 3 compatibility
 
 Migration `20260912161759_clear_signal_report_template_v3.sql` changes only the
 report table default and the two public SQL wrapper defaults to 3. It retains
@@ -202,7 +231,7 @@ No existing report row, object, capability, event or API ledger entry is rewritt
 
 | Producer/consumer | Compatibility |
 | --- | --- |
-| New web/worker | Requires REPORT_VERSION=3; pipeline remains 1 |
+| The v3 web/worker | Requires REPORT_VERSION=3; pipeline remains 1 |
 | Omitted SQL report version | Enqueues/reuses template 3 |
 | Explicit SQL version 1/2 | Historical identity remains valid; never reused as 3 |
 | Ready historical PDF | Remains downloadable by its authorized report ID |

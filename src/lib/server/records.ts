@@ -49,6 +49,8 @@ export function eventFromRow(row: Row): ListeningEvent {
     interpretation: interpretationStatus
       ? {
           status: String(interpretationStatus),
+          promptVersion: String(row.interpretation_prompt_version ?? "ihear-event-v1"),
+          model: String(row.interpretation_model ?? "gpt-6-astra"),
           result: (row.interpretation_result ?? null) as NonNullable<
             ListeningEvent["interpretation"]
           >["result"],
@@ -59,20 +61,41 @@ export function eventFromRow(row: Row): ListeningEvent {
   };
 }
 
+export function patientEvent(event: ListeningEvent, currentAids: ProfileInput["aids"]): ListeningEvent {
+  const interpretation = event.interpretation;
+  if (!interpretation?.result) return { ...event, currentAids };
+  const result = interpretation.result;
+  return {
+    ...event,
+    currentAids,
+    interpretation: {
+      ...interpretation,
+      result: {
+        patient_summary: result.patient_summary,
+        tip_ids: result.tip_ids,
+        device_action_ids: result.device_action_ids,
+      },
+    },
+  };
+}
+
 export const EVENT_SELECT = `
   select e.id, e.patient_id, e.kind, e.difficulty, e.environment, e.captured_at,
     e.created_at, e.status, e.capture, e.profile_snapshot, e.error,
     a.result as analysis_result,
-    i.status as interpretation_status, i.result as interpretation_result
+    i.status as interpretation_status, i.result as interpretation_result,
+    i.prompt_version as interpretation_prompt_version, i.model as interpretation_model
   from ihear.events e
   left join lateral (
-    select result from ihear.analyses
-    where event_id = e.id and status = 'ready'
-    order by pipeline_version desc limit 1
+    select id, result from ihear.analyses
+    where event_id = e.id and pipeline_version = e.pipeline_version and status = 'ready'
+    order by created_at desc, id desc limit 1
   ) a on true
   left join lateral (
-    select status, result from ihear.interpretations
-    where event_id = e.id
-    order by created_at desc limit 1
+    select status, result, prompt_version, model from ihear.interpretations
+    where event_id = e.id and analysis_id = a.id and model = 'gpt-6-astra'
+      and prompt_version in ('ihear-event-v1', 'ihear-event-v2')
+    order by case prompt_version when 'ihear-event-v2' then 2 else 1 end desc,
+      created_at desc, id desc limit 1
   ) i on true
 `;

@@ -40,7 +40,7 @@ All credentials are server-only. Never prefix them with `NEXT_PUBLIC_`, put them
 | `AUDIO_BUCKET` | `ihear-audio` | Same | Private, migration-bound name. |
 | `REPORT_BUCKET` | `ihear-reports` | Same | Private, migration-bound name. |
 | `QUEUE_NAME` | `ihear_jobs` | Same | pgmq queue, migration-bound name. |
-| `PIPELINE_VERSION` / `REPORT_VERSION` | `1` / `2` | Same | Schema and idempotency versions. Change code and migration together. |
+| `PIPELINE_VERSION` / `REPORT_VERSION` | `1` / `4` | Same | Schema and idempotency versions. Change code and migration together. |
 | `CLINIC_TIMEZONE` | `Europe/Prague` | Same | Profile timezone controls follow-up scheduling; budget day is Europe/Prague. |
 | `MODEL_DIR` | No | `/models` | Writable container cache; contains only checksum-verified downloadable weights. |
 | `MODEL_MANIFEST` | No | `/app/config/models.json` | Committed artifact manifest. |

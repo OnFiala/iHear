@@ -445,7 +445,59 @@ pre { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; backgroun
 .patient-install-steps { padding-left: 22px; margin: 14px 0 0; color: var(--muted); font-size: var(--text-small); }
 .patient-install-steps li + li { margin-top: 9px; }
 .mic-resume { color: var(--muted); }
+
+/* AI guidance separates recording evidence, model text, and patient controls. */
+.allure-controls { margin-top: 24px; }
+.allure-controls > .caption { margin: 0 0 16px; }
+.allure-control-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.allure-control-option { flex-direction: row; align-items: flex-start; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); font-weight: 400; cursor: pointer; }
+.allure-control-option:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.allure-control-option input { margin-top: 2px; }
+.allure-control-option strong, .allure-control-option small { display: block; }
+.allure-control-option small { margin-top: 4px; color: var(--muted); font-size: var(--text-small); line-height: 1.45; }
+.clinic-allure-profile { margin: 14px 0 0; }
+.band--review .band-track { outline: 2px solid #8d6000; outline-offset: 3px; }
+.band-review-label { color: #704a00; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.guidance-panel { margin-top: 24px; padding: 22px; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
+.guidance-heading { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.guidance-heading h3 { margin-bottom: 4px; }
+.guidance-heading .eyebrow { margin-bottom: 6px; }
+.guidance-status { flex-shrink: 0; color: #285e43; font-size: 13px; font-weight: 600; }
+.guidance-boundary, .guidance-summary { font-size: 14px; line-height: 1.6; }
+.guidance-boundary { margin: 16px 0; padding: 12px 14px; border-left: 3px solid var(--accent); background: var(--accent-soft); }
+.guidance-summary { color: var(--ink); }
+.guidance-section { margin-top: 20px; }
+.guidance-section h4, .guidance-preview h4, .guidance-limitations h4 { font-size: 15px; margin-bottom: 9px; }
+.guidance-section ul { margin: 0; padding-left: 21px; font-size: 14px; }
+.guidance-section li + li { margin-top: 7px; }
+.guidance-frequency-list { display: grid; gap: 10px; }
+.guidance-frequency { padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--subtle); }
+.guidance-frequency > strong, .guidance-frequency > span { display: block; }
+.guidance-frequency > span { margin-top: 3px; color: var(--muted); font-size: 12px; }
+.guidance-frequency p { margin: 9px 0 0; color: var(--ink); font-size: 14px; }
+.guidance-preview { margin-top: 22px; padding: 16px; border: 1px solid #c9d8f6; border-radius: var(--radius); background: var(--accent-soft); }
+.guidance-preview > p { color: var(--ink); font-size: 14px; }
+.guidance-action-preview + .guidance-action-preview { margin-top: 12px; padding-top: 12px; border-top: 1px solid #c9d8f6; }
+.guidance-action-preview strong, .guidance-action-preview span { display: block; }
+.guidance-action-preview span { margin-top: 3px; color: var(--muted); font-size: 13px; }
+.guidance-limitations { margin-top: 22px; color: var(--muted); }
+.guidance-limitations p { margin-bottom: 7px; font-size: 13px; }
+.guidance-config-changed { margin: 18px 0 0; padding: 12px 14px; border-left: 3px solid #c69021; background: #fff8e5; color: var(--ink); font-size: 14px; }
+.guidance-provenance { margin: 18px 0 0; }
+.patient-guidance-summary { padding: 22px; margin-top: 22px; }
+.patient-guidance-summary h2, .patient-device-actions h2 { font-size: 21px; margin-bottom: 10px; }
+.patient-guidance-summary p { margin-bottom: 0; }
+.patient-device-actions { margin-top: 26px; }
+.patient-device-actions > .caption { margin-bottom: 14px; }
+.patient-device-action { padding: 18px; }
+.patient-device-action + .patient-device-action { margin-top: 12px; }
+.patient-device-action h3 { font-size: 17px; margin-bottom: 7px; }
+.patient-device-action p { font-size: 15px; }
+.patient-device-action .caption { display: block; margin-bottom: 0; }
+.patient-guidance-config-changed { margin-top: 18px; padding: 12px 14px; border-left: 3px solid #c69021; background: #fff8e5; color: var(--ink); }
 @media (max-width: 760px) {
+  .allure-control-options { grid-template-columns: 1fr; }
+  .guidance-panel { padding: 18px; }
   .acoustic-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .acoustic-metrics > div, .acoustic-metrics > div:first-child { padding: 12px; }
   .acoustic-metrics strong { font-size: 22px; }

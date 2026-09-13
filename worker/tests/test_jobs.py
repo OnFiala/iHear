@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ihear_worker.astra import AstraCostExceeded, AstraRejected
+from ihear_worker.astra import AmbiguousProviderFailure, AstraCostExceeded, AstraRejected
 from ihear_worker.jobs import JobProcessor
 
 
@@ -222,6 +222,42 @@ def test_token_count_runs_after_reservation_and_releases_before_terminal_failure
     assert database.released == ["33333333-3333-3333-3333-333333333333"]
     assert database.persisted[0][2] == "failed"
     assert database.finished[0][1]["interpretationStatus"] == "failed"
+
+
+class AmbiguousGenerationAstra:
+    def prepare(self, *args, **kwargs):
+        return SimpleNamespace(input_tokens=100, encoded=b"{}")
+
+    def interpret(self, *args, **kwargs):
+        raise AmbiguousProviderFailure("provider outcome is unknown")
+
+
+def test_ambiguous_generation_holds_reservation_without_retry_or_release(tmp_path: Path) -> None:
+    device_catalog = tmp_path / "device.json"
+    device_catalog.write_text("{}", encoding="utf-8")
+    database = TokenRejectDatabase()
+    processor = JobProcessor(
+        SimpleNamespace(
+            device_capabilities=device_catalog,
+            openai_api_key="configured",
+            pipeline_version=1,
+        ),
+        database,
+        SimpleNamespace(),
+        SimpleNamespace(),
+        AmbiguousGenerationAstra(),
+    )
+    processor.process({
+        "id": "55555555-5555-5555-5555-555555555555",
+        "kind": "event_analysis", "version": 1,
+        "workspace_id": "66666666-6666-6666-6666-666666666666",
+        "patient_id": "77777777-7777-7777-7777-777777777777",
+        "event_id": "11111111-1111-1111-1111-111111111111",
+    })
+    assert database.reserve_calls == 1
+    assert database.released == []
+    assert database.persisted[0][2] == "held_ambiguity"
+    assert database.finished[0][1]["interpretationStatus"] == "held_ambiguity"
 
 
 class CustodyDatabase(MissingKeyDatabase):

@@ -16,7 +16,7 @@ from reportlab.platypus import (
     HRFlowable, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
 )
 
-from .astra import APPROVED_TIPS
+from .astra import APPROVED_TIPS, eligible_device_actions
 
 
 INK = colors.HexColor("#101828")
@@ -41,7 +41,10 @@ def _page_chrome(canvas: Any, document: Any) -> None:
     canvas.restoreState()
 
 
-def generate_report(patient: dict[str, Any], events: list[dict[str, Any]], input_revision: int) -> bytes:
+def generate_report(
+    patient: dict[str, Any], events: list[dict[str, Any]], input_revision: int,
+    device_catalog: dict[str, Any] | None = None,
+) -> bytes:
     output = BytesIO()
     document = SimpleDocTemplate(
         output,
@@ -122,7 +125,9 @@ def generate_report(patient: dict[str, Any], events: list[dict[str, Any]], input
         story.append(Paragraph("No listening moments were recorded for this report.", styles["BodyMuted"]))
     else:
         for event_index, event in enumerate(ordered_events, 1):
-            story.extend(_moment_story(event_index, event, report_timezone, styles))
+            story.extend(_moment_story(
+                event_index, event, patient.get("aids"), device_catalog, report_timezone, styles,
+            ))
 
     story.extend([
         PageBreak(),
@@ -222,7 +227,10 @@ def _summary_table(total: int, counts: Counter[Any], analysed: int, styles: Any)
     ]))
 
 
-def _moment_story(index: int, event: dict[str, Any], timezone: ZoneInfo | None, styles: Any) -> list[Any]:
+def _moment_story(
+    index: int, event: dict[str, Any], current_aids: Any,
+    device_catalog: dict[str, Any] | None, timezone: ZoneInfo | None, styles: Any,
+) -> list[Any]:
     analysis = event.get("analysis") if isinstance(event.get("analysis"), dict) else None
     header = Table([[
         Paragraph(f"{index:02d}", styles["MomentNumber"]),
@@ -249,41 +257,256 @@ def _moment_story(index: int, event: dict[str, Any], timezone: ZoneInfo | None, 
         ("TOPPADDING", (0, 0), (-1, -1), 1.7 * mm), ("BOTTOMPADDING", (0, 0), (-1, -1), 1.7 * mm),
     ]))
     result: list[Any] = [KeepTogether([header, body])]
-    result.extend(_interpretation_story(event, styles))
+    result.extend(_interpretation_story(event, current_aids, device_catalog, styles))
     # Flowable spacing is discarded at a page boundary; a standalone Spacer
     # could consume a fresh page immediately before the appendix PageBreak.
     result[-1].spaceAfter = 3.5 * mm
     return result
 
 
-def _interpretation_story(event: dict[str, Any], styles: Any) -> list[Any]:
+def _interpretation_story(
+    event: dict[str, Any], current_aids: Any, device_catalog: dict[str, Any] | None, styles: Any,
+) -> list[Any]:
     status = str(event.get("interpretation_status") or "").strip()
     interpretation = event.get("interpretation")
     if status == "ready" and isinstance(interpretation, dict):
-        lines = []
-        summary = _bounded_display(interpretation.get("summary"), 600)
+        clinician_lines = []
+        analysis = event.get("analysis") if isinstance(event.get("analysis"), dict) else {}
+        is_v2 = any(key in interpretation for key in (
+            "recommendations", "frequency_notes", "patient_summary", "device_action_ids", "device_actions",
+        ))
+        summary = (
+            _bounded_model_prose(interpretation.get("summary"), 400)
+            if is_v2 else _bounded_display(interpretation.get("summary"), 600)
+        )
         if summary:
-            lines.append(summary)
-        observations = _bounded_list(interpretation.get("observations"), 4, 240)
+            clinician_lines.append(summary)
+        observations = (
+            _bounded_model_list(interpretation.get("observations"), 4, 240)
+            if is_v2 else _bounded_list(interpretation.get("observations"), 4, 240)
+        )
         if observations:
-            lines.append("Observations: " + " | ".join(observations))
+            clinician_lines.append("Observations: " + " | ".join(observations))
+        raw_recommendations = interpretation.get("recommendations")
+        recommendations = [
+            rendered
+            for recommendation in (
+                raw_recommendations[:3] if isinstance(raw_recommendations, list) else []
+            )
+            if isinstance(recommendation, dict)
+            and (rendered := _recommendation_display(recommendation, analysis))
+        ]
+        if recommendations:
+            clinician_lines.append("Follow-up questions or options: " + " | ".join(recommendations))
+        frequency_notes = interpretation.get("frequency_notes")
+        if isinstance(frequency_notes, list):
+            rendered_notes = [
+                rendered for note in frequency_notes[:3]
+                if isinstance(note, dict) and (rendered := _frequency_note_display(note, analysis))
+            ]
+            if rendered_notes:
+                clinician_lines.append("Frequency-band review: " + " | ".join(rendered_notes))
+        limitations = (
+            _bounded_model_list(interpretation.get("limitations"), 4, 240)
+            if is_v2 else _bounded_list(interpretation.get("limitations"), 4, 240)
+        )
+        if limitations:
+            clinician_lines.append("Limitations: " + " | ".join(limitations))
+
+        patient_lines = []
+        patient_summary = _bounded_model_prose(interpretation.get("patient_summary"), 300)
+        if patient_summary:
+            patient_lines.append(patient_summary)
         tip_ids = interpretation.get("tip_ids") if isinstance(interpretation.get("tip_ids"), list) else []
         tips = [APPROVED_TIPS[tip_id] for tip_id in tip_ids[:3] if tip_id in APPROVED_TIPS]
         if tips:
-            lines.append("Patient tips: " + " | ".join(tips))
-        limitations = _bounded_list(interpretation.get("limitations"), 4, 240)
-        if limitations:
-            lines.append("Limitations: " + " | ".join(limitations))
-        if not lines:
-            lines.append("Ready interpretation contained no displayable text.")
-        return [Table([[Paragraph("<b>Interpretation</b><br/>" + _escape(" ".join(lines)), styles["Interpretation"])]], colWidths=[173 * mm], style=TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), BLUE_PALE), ("BOX", (0, 0), (-1, -1), 0.5, BORDER),
-            ("LEFTPADDING", (0, 0), (-1, -1), 3 * mm), ("RIGHTPADDING", (0, 0), (-1, -1), 3 * mm),
-            ("TOPPADDING", (0, 0), (-1, -1), 2 * mm), ("BOTTOMPADDING", (0, 0), (-1, -1), 2 * mm),
-        ]))]
+            patient_lines.append("General tips: " + " | ".join(tips))
+        device_action_ids = interpretation.get("device_action_ids")
+        if isinstance(device_action_ids, list) and device_action_ids:
+            rendered_actions, action_notice = _current_device_action_guidance(
+                device_action_ids, event.get("profile_snapshot"), current_aids, device_catalog,
+            )
+            patient_lines.extend(rendered_actions)
+            if action_notice:
+                patient_lines.append(action_notice)
+
+        if not is_v2:
+            legacy_lines = clinician_lines + patient_lines
+            if not legacy_lines:
+                legacy_lines.append("Ready interpretation contained no displayable text.")
+            return [_guidance_box("Interpretation", legacy_lines, styles, BLUE_PALE)]
+
+        model = _bounded_display(event.get("interpretation_model"), 80) or "not recorded"
+        prompt_version = _bounded_display(event.get("interpretation_prompt_version"), 80) or "not recorded"
+        clinician_lines.insert(
+            0,
+            f"AI-generated from bounded evidence; clinician review is required. Model: {model}; prompt: {prompt_version}.",
+        )
+        boxes = []
+        if clinician_lines:
+            boxes.append(_guidance_box("AI guidance for clinician review", clinician_lines, styles, BLUE_PALE))
+        if patient_lines:
+            boxes.append(_guidance_box("AI listening note for the patient", patient_lines, styles, YELLOW_PALE))
+        if not boxes:
+            boxes.append(_guidance_box(
+                "Interpretation", ["Ready interpretation contained no displayable text."], styles, BLUE_PALE,
+            ))
+        return boxes
     if status:
         return [Paragraph(f"<b>Interpretation status:</b> {_escape(_humanize(status))}", styles["Interpretation"])]
     return []
+
+
+def _guidance_box(title: str, lines: list[str], styles: Any, background: colors.Color) -> Table:
+    return Table(
+        [[Paragraph(f"<b>{_escape(title)}</b><br/>" + _escape(" ".join(lines)), styles["Interpretation"])]],
+        colWidths=[173 * mm],
+        style=TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), background),
+            ("BOX", (0, 0), (-1, -1), 0.5, BORDER),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3 * mm),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3 * mm),
+            ("TOPPADDING", (0, 0), (-1, -1), 2 * mm),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2 * mm),
+        ]),
+    )
+
+
+def _frequency_note_display(note: dict[str, Any], analysis: dict[str, Any]) -> str | None:
+    index = note.get("band_index")
+    bands = analysis.get("bands")
+    if isinstance(index, bool) or not isinstance(index, int) or not isinstance(bands, list):
+        return None
+    if index < 0 or index >= len(bands) or not isinstance(bands[index], dict):
+        return None
+    band = bands[index]
+    low = _number_text(band.get("low_hz"), 0)
+    high = _number_text(band.get("high_hz"), 0)
+    explanation = _bounded_model_prose(note.get("explanation"), 240)
+    question = _bounded_model_prose(note.get("review_question"), 180)
+    if low is None or high is None or not explanation or not question:
+        return None
+    return f"{low}-{high} Hz: {explanation} Review question: {question}"
+
+
+EVIDENCE_LABELS = {
+    "reported_event": "patient-reported event",
+    "audiogram": "clinician-entered audiogram",
+    "clinician_note": "clinician note",
+    "phone_audio": "phone-audio measurements",
+    "speech_estimate": "Silero speech-activity estimate",
+    "sound_categories": "YAMNet acoustic-category estimates",
+    "prior_events": "prior listening events",
+}
+
+
+def _recommendation_display(
+    recommendation: dict[str, Any], analysis: dict[str, Any],
+) -> str | None:
+    text = _bounded_model_prose(recommendation.get("text"), 240)
+    refs = recommendation.get("evidence_refs")
+    if (
+        not text
+        or not isinstance(refs, list)
+        or not 1 <= len(refs) <= 3
+        or any(not isinstance(ref, str) for ref in refs)
+        or len(set(refs)) != len(refs)
+    ):
+        return None
+    labels: list[str] = []
+    for ref in refs:
+        label = EVIDENCE_LABELS.get(ref)
+        if label is None and ref.startswith("band:"):
+            suffix = ref.removeprefix("band:")
+            if not suffix.isascii() or not suffix.isdigit():
+                return None
+            index = int(suffix)
+            bands = analysis.get("bands")
+            if (
+                index < 0
+                or not isinstance(bands, list)
+                or index >= len(bands)
+                or not isinstance(bands[index], dict)
+            ):
+                return None
+            low = _number_text(bands[index].get("low_hz"), 0)
+            high = _number_text(bands[index].get("high_hz"), 0)
+            if low is None or high is None:
+                return None
+            label = f"{low}-{high} Hz relative band"
+        if label is None:
+            return None
+        labels.append(label)
+    return f"{text} Supporting evidence: {', '.join(labels)}."
+
+
+def _bounded_model_list(value: Any, maximum: int, text_limit: int) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [
+        text for item in value[:maximum]
+        if (text := _bounded_model_prose(item, text_limit))
+    ]
+
+
+def _bounded_model_prose(value: Any, maximum: int) -> str | None:
+    text = _bounded_display(value, maximum)
+    if (
+        not text
+        or "%" in text
+        or any(character.isdigit() for character in text)
+        or "://" in text
+        or "www." in text.casefold()
+    ):
+        return None
+    return text
+
+
+def _current_device_action_guidance(
+    action_ids: list[Any], profile_snapshot: Any, current_aids: Any,
+    device_catalog: dict[str, Any] | None,
+) -> tuple[list[str], str | None]:
+    snapshot_aids = profile_snapshot.get("aids") if isinstance(profile_snapshot, dict) else None
+    if not isinstance(snapshot_aids, dict) or not isinstance(current_aids, dict):
+        return [], "Device guidance is not shown because the current and recorded device configuration cannot be compared."
+    if _canonical_aids(snapshot_aids) != _canonical_aids(current_aids):
+        return [], "Device guidance is not shown because the device or app confirmation changed after this moment."
+    if not isinstance(device_catalog, dict):
+        return [], "Device guidance is not shown because the current verified device catalog is unavailable."
+    approved = {
+        action["id"]: action for action in eligible_device_actions(current_aids, device_catalog)
+    }
+    rendered = [
+        text for action_id in action_ids[:2]
+        if isinstance(action_id, str)
+        and isinstance(approved.get(action_id), dict)
+        and (text := _device_action_display(approved[action_id]))
+    ]
+    if len(rendered) != len(action_ids[:2]):
+        return rendered, "One or more previously suggested device actions are not shown because current verified support is unavailable."
+    return rendered, None
+
+
+def _canonical_aids(value: dict[str, Any]) -> dict[str, Any]:
+    canonical = dict(value)
+    app = value.get("app")
+    if isinstance(app, dict):
+        canonical_app = dict(app)
+        confirmed = app.get("confirmedActions")
+        if isinstance(confirmed, list) and all(isinstance(item, str) for item in confirmed):
+            canonical_app["confirmedActions"] = sorted(set(confirmed))
+        canonical["app"] = canonical_app
+    return canonical
+
+
+def _device_action_display(action: dict[str, Any]) -> str | None:
+    title = _bounded_display(action.get("title"), 120)
+    instruction = _bounded_display(action.get("instruction"), 500)
+    source = _bounded_display(action.get("source"), 300)
+    checked_at = _bounded_display(action.get("checkedAt"), 40)
+    if not all((title, instruction, source, checked_at)):
+        return None
+    return f"{title}: {instruction} Source: {source} (checked {checked_at})."
 
 
 def _technical_event_story(index: int, event: dict[str, Any], timezone: ZoneInfo | None, styles: Any) -> list[Any]:

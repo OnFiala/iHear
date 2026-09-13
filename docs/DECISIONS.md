@@ -79,10 +79,10 @@ programs, equalizer, Direction Focus, AI Sound Assistant and AI Quick Assistant.
 The same page limits Clarity Boost to Allure AI RIC; generic app documentation
 alone does not prove that every feature is present on a given patient's BTE.
 
-This is a clarified product direction, not evidence that the richer dual-output
-AI layer is implemented or clinically validated. The existing API-off decision,
-private access and cost boundaries remain unchanged; this clarification does not
-activate a provider or transmit patient data.
+The versioned implementation and its verification are tracked in STATUS.md.
+Implementation or synthetic-fixture acceptance does not establish clinical
+validity. The existing API-off decision, private access and cost boundaries remain
+unchanged; this clarification does not activate a provider or transmit patient data.
 
 ## B. Engineering choices made by Codex
 - One Next.js App Router application, TypeScript, CSS; Python CPU worker.
@@ -98,7 +98,7 @@ activate a provider or transmit patient data.
 - All visitor workspaces are isolated by server-issued capabilities; the landing showcase is immutable synthetic content. There is no owner-cookie recovery feature in this milestone.
 - Report generation uses stored acoustic features and interpretations; it incurs no additional Astra call. A scheduling sweep prepares due follow-up reports in the profile timezone and reuses an unchanged input revision.
 
-- Report template 3 uses a new cache identity. Before changing worker/report
+- Historical Clear Signal decision: report template 3 introduced a new cache identity. Before changing worker/report
   versions in either direction, stop web admission, drain unfinished jobs with
   the current worker, stop that worker, and check the queue again. Historical
   PDFs remain intact; no reset or destructive migration is part of this change.

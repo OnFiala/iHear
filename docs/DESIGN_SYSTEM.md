@@ -19,7 +19,7 @@ landing page. The approved combined visual is `docs/design/clear-signal-referenc
   holds the audiogram, aids and editor. Pairing and acoustic evidence expand on demand.
 - The PDF begins with a chronological listening log and preserves actual DSP,
   model provenance, unavailable/failed interpretation and synthetic audiogram
-  evidence in technical details. Report template 3 has a separate cache identity.
+  evidence in technical details. Report template 4 has a separate cache identity and distinguishes clinician and patient AI guidance.
 - Responsive layouts preserve native form controls, visible keyboard focus,
   at least 44 px primary targets, reduced motion and higher contrast preferences.
   There is no essential animation, glass blur or audio-only feedback.

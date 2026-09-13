@@ -1,7 +1,12 @@
 {
-  "version": "2026-09-11",
+  "version": "2026-09-13",
   "device": "Widex ALLURE BTE R D",
-  "illustrativeTiers": ["110", "220", "330", "440"],
+  "illustrativeTiers": [
+    "110",
+    "220",
+    "330",
+    "440"
+  ],
   "facts": [
     {
       "fact": "The manufacturer identifies ALLURE BTE R D as a rechargeable behind-the-ear hearing aid.",
@@ -13,9 +18,51 @@
   ],
   "tierSpecificDifferences": "unknown",
   "routingWithConnectedPhone": "unknown; requires physical device testing",
-  "excludedClaims": ["RIC-only features", "tier guarantees understanding", "prescribed gain", "calibrated sound at the eardrum", "voice separation accuracy"],
+  "excludedClaims": [
+    "RIC-only features",
+    "tier guarantees understanding",
+    "prescribed gain",
+    "calibrated sound at the eardrum",
+    "voice separation accuracy"
+  ],
   "sourceCautions": [
     "The live BTE product page also contains a paragraph explicitly naming Allure AI RIC; its connectivity and sensor claims are not imported into this BTE record.",
-    "The user-approved 110/220/330/440 illustrative selection is not evidence of comparative clinical performance."
+    "The user-approved 110/220/330/440 illustrative selection is not evidence of comparative clinical performance.",
+    "App controls are documented at app scope. Recommendations additionally require clinician confirmation in the patient app, a recorded app version and an exact supported model on every worn side. No tier, program or channel-count guarantee is inferred."
+  ],
+  "appActions": [
+    {
+      "id": "allure_equalizer",
+      "title": "Compare sound with the equalizer",
+      "instruction": "In the Widex Allure app, open the equalizer and compare a small change to bass, middle or treble with the original sound. Keep the option you find comfortable; restore the original if it is less helpful. This does not specify professional fitting values.",
+      "source": "https://www.widex.com/en/hearing-aids/apps/allure-app/",
+      "checkedAt": "2026-09-13",
+      "supportedModels": [
+        "Widex ALLURE BTE R D"
+      ],
+      "verificationStatus": "verified_app_control_requires_confirmation"
+    },
+    {
+      "id": "allure_direction_focus",
+      "title": "Try Direction Focus",
+      "instruction": "If you are listening to someone in front of you, try the Direction Focus control in the Widex Allure app and compare it with your usual listening mode. Return to your usual mode if it does not help.",
+      "source": "https://www.widex.com/en/hearing-aids/apps/allure-app/",
+      "checkedAt": "2026-09-13",
+      "supportedModels": [
+        "Widex ALLURE BTE R D"
+      ],
+      "verificationStatus": "verified_app_control_requires_confirmation"
+    },
+    {
+      "id": "allure_programs",
+      "title": "Compare available listening programs",
+      "instruction": "In the Widex Allure app, compare the listening programs already available to you in this situation. Choose the one you find more comfortable and easier to follow, then note whether it helped.",
+      "source": "https://www.widex.com/en/hearing-aids/apps/allure-app/",
+      "checkedAt": "2026-09-13",
+      "supportedModels": [
+        "Widex ALLURE BTE R D"
+      ],
+      "verificationStatus": "verified_app_control_requires_confirmation"
+    }
   ]
 }

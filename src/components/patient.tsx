@@ -33,11 +33,11 @@ import {
 import {
   difficulties,
   environments,
-  tips,
   type Patient,
   type ListeningEvent,
 } from "@/lib/types";
 import { Header, ErrorBox, Loading, Status, EventList } from "./shared";
+import { PatientGuidance } from "./guidance";
 import { useHomeScreenInstall } from "./home-screen-install";
 const PROFILE_KEY = "ihear-paired-profile";
 export function PatientHome() {
@@ -989,16 +989,22 @@ export function PatientEvent({ id }: { id: string }) {
                   clinician can still review its acoustic results.
                 </p>
               )}
+              {event.interpretation &&
+                !event.interpretation.result &&
+                ![
+                  "unavailable",
+                  "failed",
+                  "skipped",
+                  "held_budget",
+                  "held_ambiguity",
+                ].includes(event.interpretation.status) && (
+                  <p className="caption">
+                    Automated interpretation is still processing. Your moment
+                    is saved.
+                  </p>
+                )}
             </section>
-            {event.interpretation?.result?.tip_ids
-              ?.filter((id) => tips[id])
-              .slice(0, 1)
-              .map((id) => (
-                <section className="glass tip-card" key={id}>
-                  <span className="eyebrow">A gentle suggestion</span>
-                  <p>{tips[id]}</p>
-                </section>
-              ))}
+            <PatientGuidance event={event} />
             <p className="caption">
               Your feedback and this recording can support a conversation. They
               do not diagnose a condition or prescribe hearing-aid settings.

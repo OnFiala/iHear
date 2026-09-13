@@ -9,6 +9,8 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from .astra import MODEL, PROMPT_VERSION
+
 
 @dataclass(frozen=True)
 class QueueMessage:
@@ -106,9 +108,9 @@ class WorkerDatabase:
                 """
                 select id::text, status, result, api_usage_id::text
                 from ihear.interpretations
-                where analysis_id = %s and model = 'gpt-6-astra' and prompt_version = 'ihear-event-v1'
+                where analysis_id = %s and model = %s and prompt_version = %s
                 """,
-                (analysis_id,),
+                (analysis_id, MODEL, PROMPT_VERSION),
             ).fetchone()
 
     def reserve_budget(self, job: dict[str, Any], maximum_cost: Decimal, idempotency_key: str, ambiguous: bool = False) -> dict[str, Any]:
@@ -130,7 +132,7 @@ class WorkerDatabase:
             row = connection.execute(
                 "select ihear.persist_interpretation(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) as id",
                 (
-                    job_id, self.worker_id, analysis_id, "gpt-6-astra", "ihear-event-v1", status,
+                    job_id, self.worker_id, analysis_id, MODEL, PROMPT_VERSION, status,
                     Jsonb(result) if result is not None else None, Jsonb(provenance), error, usage_id,
                 ),
             ).fetchone()
@@ -148,7 +150,7 @@ class WorkerDatabase:
             row = connection.execute(
                 "select ihear.persist_interpretation(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) as id",
                 (
-                    job_id, self.worker_id, analysis_id, "gpt-6-astra", "ihear-event-v1", "ready",
+                    job_id, self.worker_id, analysis_id, MODEL, PROMPT_VERSION, "ready",
                     Jsonb(result), Jsonb(provenance), None, usage_id,
                 ),
             ).fetchone()
@@ -182,17 +184,33 @@ class WorkerDatabase:
             event_rows = connection.execute(
                 """
                 select e.id::text, e.kind, e.difficulty, e.environment, e.captured_at::text,
-                       e.capture, a.result as analysis, i.status as interpretation_status,
-                       i.result as interpretation
+                       e.capture, e.profile_snapshot, a.result as analysis, i.status as interpretation_status,
+                       i.result as interpretation, i.model as interpretation_model,
+                       i.prompt_version as interpretation_prompt_version
                 from ihear.events e
-                left join ihear.analyses a
-                  on a.event_id = e.id and a.pipeline_version = e.pipeline_version and a.status = 'ready'
-                left join ihear.interpretations i
-                  on i.analysis_id = a.id and i.model = 'gpt-6-astra' and i.prompt_version = 'ihear-event-v1'
+                left join lateral (
+                  select candidate.id, candidate.result
+                  from ihear.analyses candidate
+                  where candidate.event_id = e.id
+                    and candidate.pipeline_version = e.pipeline_version
+                    and candidate.status = 'ready'
+                  order by candidate.created_at desc, candidate.id desc
+                  limit 1
+                ) a on true
+                left join lateral (
+                  select candidate.status, candidate.result, candidate.model, candidate.prompt_version
+                  from ihear.interpretations candidate
+                  where candidate.analysis_id = a.id
+                    and candidate.model = %s
+                    and candidate.prompt_version in (%s, 'ihear-event-v1')
+                  order by case when candidate.prompt_version = %s then 0 else 1 end,
+                           candidate.created_at desc, candidate.id desc
+                  limit 1
+                ) i on true
                 where e.patient_id = %s and e.workspace_id = %s
                 order by e.captured_at asc
                 """,
-                (job["patient_id"], job["workspace_id"]),
+                (MODEL, PROMPT_VERSION, PROMPT_VERSION, job["patient_id"], job["workspace_id"]),
             ).fetchall()
         if not report or not patient:
             raise LookupError("Report job references missing patient or report")

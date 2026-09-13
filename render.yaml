@@ -36,7 +36,7 @@ services:
       - key: PIPELINE_VERSION
         value: "1"
       - key: REPORT_VERSION
-        value: "2"
+        value: "4"
       - key: CLINIC_TIMEZONE
         value: Europe/Prague
       - key: MODEL_DIR

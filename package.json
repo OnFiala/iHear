@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start --hostname 0.0.0.0 --port 3000",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/audio.test.ts tests/patient-access.test.ts && node --conditions=react-server --import tsx --test tests/backend.test.ts",
+    "test": "node --import tsx --test tests/audio.test.ts tests/patient-access.test.ts tests/guidance.test.tsx && node --conditions=react-server --import tsx --test tests/backend.test.ts",
     "test:e2e": "playwright test",
     "test:db": "node --conditions=react-server --import tsx --test tests/backend-db.test.ts",
     "local:start": "python3 scripts/local.py start",

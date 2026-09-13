@@ -34,4 +34,4 @@ def test_fixed_runtime_contract_accepts_documented_values(monkeypatch: pytest.Mo
     monkeypatch.setenv("WORKER_CONCURRENCY", "1")
     settings = Settings.from_env()
     assert settings.worker_id
-    assert settings.report_version == 3
+    assert settings.report_version == 4

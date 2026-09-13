@@ -3,6 +3,7 @@ import { requirePatient } from "@/lib/server/auth";
 import { acceptEvent, admitEventUploadRequest } from "@/lib/server/events";
 import { errorResponse, HttpError, readBoundedBody } from "@/lib/server/http";
 import { listEvents } from "@/lib/server/patients";
+import { patientEvent } from "@/lib/server/records";
 import { requireSameOrigin } from "@/lib/server/security";
 import { parseEventMetadata } from "@/lib/server/validation";
 
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await requirePatient(request);
     return NextResponse.json({
-      events: await listEvents(auth.workspaceId, auth.patientId),
+      events: (await listEvents(auth.workspaceId, auth.patientId)).map((event) => patientEvent(event, auth.patient.aids)),
     });
   } catch (error) {
     return errorResponse(error);
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
       parseEventMetadata(parsed),
       Buffer.from(await audioValue.arrayBuffer()),
     );
-    return NextResponse.json({ event }, { status: 202 });
+    return NextResponse.json({ event: patientEvent(event, auth.patient.aids) }, { status: 202 });
   } catch (error) {
     return errorResponse(error);
   }

@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { types as pgTypes } from "pg";
-import { patientFromRow } from "../src/lib/server/records";
+import { patientFromRow, patientEvent } from "../src/lib/server/records";
+import { actionsForProfile } from "../src/lib/device-guidance";
+import type { ListeningEvent } from "../src/lib/types";
+import deviceCatalog from "../config/device-capabilities.json";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { inspectWav, eventFingerprint } from "../src/lib/server/wav";
@@ -102,6 +105,62 @@ const validProfile = {
   note: "",
   timezone: "Europe/Prague",
 };
+
+test("app guidance requires exact worn models, an app version and explicit unique confirmation", () => {
+  const profile = {
+    ...validProfile,
+    aids: {
+      side: "bilateral" as const,
+      left: { model: "Widex ALLURE BTE R D", tier: "220" },
+      right: { model: "Widex ALLURE BTE R D", tier: "220" },
+      app: { name: "Widex Allure" as const, version: "test-fixture-1", confirmedActions: ["allure_equalizer"] },
+    },
+  };
+  const parsed = parseProfile(profile);
+  assert.deepEqual(actionsForProfile(parsed.aids).map((action) => action.id), ["allure_equalizer"]);
+  assert.deepEqual(actionsForProfile(validProfile.aids), []);
+  for (const aids of [
+    { ...profile.aids, right: { model: "Unknown model", tier: "220" } },
+    { ...profile.aids, right: { model: "Widex ALLURE BTE R D", tier: "999" } },
+    { ...profile.aids, app: { ...profile.aids.app, version: "" } },
+    { ...profile.aids, app: { ...profile.aids.app, confirmedActions: ["allure_equalizer", "allure_equalizer"] } },
+    { ...profile.aids, app: { ...profile.aids.app, confirmedActions: ["clarity_boost"] } },
+  ]) assert.throws(() => parseProfile({ ...profile, aids }));
+  assert.deepEqual(actionsForProfile({ ...profile.aids, app: { ...profile.aids.app, confirmedActions: [] } }), []);
+  const action = deviceCatalog.appActions.find(({ id }) => id === "allure_equalizer")!;
+  const originalStatus = action.verificationStatus;
+  const originalModels = action.supportedModels;
+  try {
+    action.verificationStatus = "unverified";
+    assert.deepEqual(actionsForProfile(parsed.aids), [], "catalog revocation suppresses historic action IDs");
+    action.verificationStatus = originalStatus;
+    action.supportedModels = [];
+    assert.deepEqual(actionsForProfile(parsed.aids), [], "per-control compatibility is required");
+  } finally {
+    action.verificationStatus = originalStatus;
+    action.supportedModels = originalModels;
+  }
+});
+
+test("patient event projection includes only the patient guidance and approved action identifiers", () => {
+  const event = {
+    id: "fixture",
+    interpretation: {
+      status: "ready", promptVersion: "ihear-event-v2", model: "gpt-6-astra",
+      result: {
+        summary: "Clinician-only summary", observations: ["Clinician observation"],
+        recommendations: [{ text: "Clinician question", evidence_refs: ["reported_event"] }], frequency_notes: [], limitations: [],
+        patient_summary: "A short patient explanation.", tip_ids: ["face_speaker"],
+        device_action_ids: ["allure_equalizer"],
+        device_actions: [{ id: "allure_equalizer", title: "Injected title", instruction: "Injected instruction", source: "https://invalid.example", checkedAt: "2026-09-13" }],
+      },
+    },
+  } as unknown as ListeningEvent;
+  assert.deepEqual(patientEvent(event, validProfile.aids).interpretation?.result, {
+    patient_summary: "A short patient explanation.", tip_ids: ["face_speaker"], device_action_ids: ["allure_equalizer"],
+  });
+  assert.equal(event.interpretation?.result?.summary, "Clinician-only summary");
+});
 
 test("profile validation preserves the shared shape and rejects inconsistent arrays/devices", () => {
   assert.deepEqual(parseProfile(validProfile), validProfile);

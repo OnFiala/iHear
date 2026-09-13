@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import pg, { type QueryResult } from "pg";
+import { EVENT_SELECT, eventFromRow } from "../src/lib/server/records";
 
 const DATABASE_URL =
   process.env.DATABASE_URL ??
@@ -232,6 +233,21 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
       "select ihear.persist_interpretation($1, $2, $3, 'unavailable', 'v1', 'held_ambiguity', null, $4)",
       [jobId, attemptB, analysis.rows[0].id, { reason: "test" }],
     );
+    for (const [version, summary] of [["ihear-event-v1", "Legacy fixture"], ["ihear-event-v2", "Current fixture"]]) {
+      await client.query(
+        "select ihear.persist_interpretation($1, $2, $3, 'gpt-6-astra', $4, 'ready', $5, $6)",
+        [jobId, attemptB, analysis.rows[0].id, version, { summary, patient_summary: "Patient fixture" }, { fixture: true }],
+      );
+    }
+    const selected = await client.query(`${EVENT_SELECT} where e.id = $1 and e.workspace_id = $2`, [eventIds[0], workspaceA]);
+    assert.equal(selected.rowCount, 1, "versioned interpretations must not duplicate an event");
+    assert.equal(eventFromRow(selected.rows[0]).interpretation?.promptVersion, "ihear-event-v2");
+    assert.equal(eventFromRow(selected.rows[0]).interpretation?.result?.summary, "Current fixture");
+    await client.query("savepoint old_interpretation");
+    await client.query("delete from ihear.interpretations where analysis_id = $1 and prompt_version = 'ihear-event-v2'", [analysis.rows[0].id]);
+    const legacy = await client.query(`${EVENT_SELECT} where e.id = $1`, [eventIds[0]]);
+    assert.equal(eventFromRow(legacy.rows[0]).interpretation?.result?.summary, "Legacy fixture");
+    await client.query("rollback to savepoint old_interpretation");
     await client.query("select ihear.mark_audio_deleted($1, $2)", [
       eventIds[0],
       `${workspaceA}/${patientA}/${eventIds[0]}.wav`,
@@ -336,7 +352,7 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
        returning report_version`,
       [patientB],
     );
-    assert.equal(tableDefaultReport.rows[0].report_version, 3);
+    assert.equal(tableDefaultReport.rows[0].report_version, 4);
 
     const report = await client.query<{
       value: { reportId: string; status: string };
@@ -367,7 +383,7 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
       report.rows[0].value.reportId,
     );
     const reportV3 = await client.query<{ value: { reportId: string; status: string } }>(
-      "select ihear.ensure_report_job($1, $2) as value", [workspaceA, patientA],
+      "select ihear.ensure_report_job($1, $2, 3) as value", [workspaceA, patientA],
     );
     const reportV3Again = await client.query<{ value: { reportId: string } }>(
       "select ihear.ensure_report_job($1, $2, 3) as value", [workspaceA, patientA],
@@ -375,10 +391,19 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
     assert.equal(reportV3.rows[0].value.status, "queued");
     assert.equal(reportV3.rows[0].value.reportId, reportV3Again.rows[0].value.reportId);
     assert.notEqual(reportV3.rows[0].value.reportId, reportV2.rows[0].value.reportId);
-    const scheduledV3 = await client.query<{ value: { reportId: string } }>(
+    const reportV4 = await client.query<{ value: { reportId: string; status: string } }>(
+      "select ihear.ensure_report_job($1, $2) as value", [workspaceA, patientA],
+    );
+    const reportV4Again = await client.query<{ value: { reportId: string } }>(
+      "select ihear.ensure_report_job($1, $2, 4) as value", [workspaceA, patientA],
+    );
+    assert.equal(reportV4.rows[0].value.status, "queued");
+    assert.equal(reportV4.rows[0].value.reportId, reportV4Again.rows[0].value.reportId);
+    assert.notEqual(reportV4.rows[0].value.reportId, reportV3.rows[0].value.reportId);
+    const scheduledV4 = await client.query<{ value: { reportId: string } }>(
       "select ihear.ensure_scheduled_report_job($1, $2) as value", [workspaceA, patientA],
     );
-    assert.equal(scheduledV3.rows[0].value.reportId, reportV3.rows[0].value.reportId);
+    assert.equal(scheduledV4.rows[0].value.reportId, reportV4.rows[0].value.reportId);
     const reportVersions = await client.query<{
       id: string;
       report_version: number;
@@ -389,7 +414,7 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
        join ihear.jobs j on j.report_id = r.id and j.kind = 'report'
        where r.id = any($1::uuid[])
        order by r.report_version`,
-      [[report.rows[0].value.reportId, reportV2.rows[0].value.reportId, reportV3.rows[0].value.reportId]],
+      [[report.rows[0].value.reportId, reportV2.rows[0].value.reportId, reportV3.rows[0].value.reportId, reportV4.rows[0].value.reportId]],
     );
     assert.deepEqual(
       reportVersions.rows.map(({ report_version, job_version }) => ({
@@ -400,6 +425,7 @@ test("database enforces tenant, idempotency, queue, lease, search, and global bu
         { report_version: 1, job_version: 1 },
         { report_version: 2, job_version: 2 },
         { report_version: 3, job_version: 3 },
+        { report_version: 4, job_version: 4 },
       ],
     );
     const reportJob = await client.query<{ id: string }>(

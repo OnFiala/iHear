@@ -93,3 +93,49 @@ def test_schedule_due_reports_keeps_49_successes_when_the_50th_hits_capacity() -
         parameters[1] for query, parameters in connection.calls
         if "ensure_scheduled_report_job" in query
     ] == [f"due-{index}" for index in range(1, 51)]
+
+
+class _ReportConnection(_Connection):
+    def execute(self, query: str, parameters: tuple[Any, ...] = ()) -> _Result:
+        self.calls.append((query, parameters))
+        if "from ihear.reports" in query:
+            return _Result([{
+                "id": "report", "input_revision": 9, "report_version": 4,
+                "status": "pending", "object_path": None,
+            }])
+        if "from ihear.patients" in query:
+            return _Result([{"id": "patient", "display_name": "Synthetic"}])
+        if "from ihear.events e" in query:
+            return _Result([{
+                "id": "event", "analysis": {"bands": []},
+                "interpretation_status": "ready",
+                "interpretation_prompt_version": "ihear-event-v1",
+                "interpretation": {"summary": "Legacy interpretation"},
+            }])
+        return _Result()
+
+
+def test_report_context_selects_one_current_analysis_and_prefers_v2_with_v1_fallback() -> None:
+    connection = _ReportConnection()
+    database = WorkerDatabase("postgresql://unused", "ihear_jobs", "worker")
+
+    @contextmanager
+    def fake_connection() -> Iterator[_ReportConnection]:
+        yield connection
+
+    database.connection = fake_connection  # type: ignore[method-assign]
+    report, patient, events = database.report_context({
+        "report_id": "report", "patient_id": "patient", "workspace_id": "workspace",
+    })
+    assert report["report_version"] == 4
+    assert patient["display_name"] == "Synthetic"
+    assert events[0]["interpretation_prompt_version"] == "ihear-event-v1"
+    query, parameters = next(call for call in connection.calls if "from ihear.events e" in call[0])
+    normalized = " ".join(query.split())
+    assert normalized.count("left join lateral") == 2
+    assert "candidate.pipeline_version = e.pipeline_version" in normalized
+    assert "candidate.prompt_version in (%s, 'ihear-event-v1')" in normalized
+    assert "case when candidate.prompt_version = %s then 0 else 1 end" in normalized
+    assert parameters == (
+        "gpt-6-astra", "ihear-event-v2", "ihear-event-v2", "patient", "workspace",
+    )

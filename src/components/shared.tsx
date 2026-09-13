@@ -221,7 +221,7 @@ export function Audiogram({ data }: { data: ProfileInput["audiogram"] }) {
     </figure>
   );
 }
-export function AcousticResult({ analysis }: { analysis: Analysis }) {
+export function AcousticResult({ analysis, reviewBandIndices = [] }: { analysis: Analysis; reviewBandIndices?: number[] }) {
   const levelTimeline = analysis.level_timeline;
   const speech = analysis.speech_activity || { status: "not_stored" };
   const categories = analysis.acoustic_categories || { status: "not_stored" };
@@ -329,8 +329,8 @@ export function AcousticResult({ analysis }: { analysis: Analysis }) {
         role="img"
         aria-label="Relative frequency-band energy in the recording"
       >
-        {(analysis.bands || []).map((b) => (
-          <div key={b.low_hz} className="band">
+        {(analysis.bands || []).map((b, index) => (
+          <div key={b.low_hz} className={`band${reviewBandIndices.includes(index) ? " band--review" : ""}`}>
             <span className="band-value">
               {(b.relative_energy * 100).toFixed(1)}%
             </span>
@@ -343,9 +343,13 @@ export function AcousticResult({ analysis }: { analysis: Analysis }) {
               {b.low_hz >= 1000 ? b.low_hz / 1000 + "k" : b.low_hz}–
               {b.high_hz >= 1000 ? b.high_hz / 1000 + "k" : b.high_hz}
             </span>
+            {reviewBandIndices.includes(index) && <span className="band-review-label">AI review</span>}
           </div>
         ))}
       </div>
+      {reviewBandIndices.some((index) => Number.isInteger(index) && analysis.bands[index]) && (
+        <p className="caption">Marked ranges have an AI review note below. Bar heights remain the measured relative energy.</p>
+      )}
       {analysis.quality_flags?.length > 0 && (
         <ul className="notice acoustic-quality-notes">
           {analysis.quality_flags.map((flag) => (

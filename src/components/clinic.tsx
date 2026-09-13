@@ -40,6 +40,12 @@ import {
   Audiogram,
   AcousticResult,
 } from "./shared";
+import { ClinicianGuidance } from "./guidance";
+import {
+  actionOptions,
+  supportsAllureActions,
+  type AllureActionId,
+} from "@/lib/device-guidance";
 const sample: ProfileInput = {
   displayName: "",
   audiogram: {
@@ -56,6 +62,11 @@ const sample: ProfileInput = {
   note: "",
   timezone: "Europe/Prague",
 };
+
+function withoutAllureControls(aids: ProfileInput["aids"]): ProfileInput["aids"] {
+  const { app: _app, ...base } = aids;
+  return base;
+}
 export function ClinicDirectory() {
   const [patients, setPatients] = useState<Patient[]>([]),
     [q, setQ] = useState(""),
@@ -408,6 +419,7 @@ export function PatientForm({
               onChange={(e) => {
                 const side = e.target.value as ProfileInput["aids"]["side"];
                 field("aids", {
+                  ...withoutAllureControls(value.aids),
                   side,
                   left:
                     side === "right"
@@ -440,7 +452,15 @@ export function PatientForm({
                   </legend>
                   <label>
                     Model
-                    <select value={value.aids[ear]!.model} onChange={() => {}}>
+                    <select
+                      value={value.aids[ear]!.model}
+                      onChange={(e) =>
+                        field("aids", {
+                          ...withoutAllureControls(value.aids),
+                          [ear]: { ...value.aids[ear]!, model: e.target.value },
+                        })
+                      }
+                    >
                       <option>Widex ALLURE BTE R D</option>
                     </select>
                   </label>
@@ -450,7 +470,7 @@ export function PatientForm({
                       value={value.aids[ear]!.tier}
                       onChange={(e) =>
                         field("aids", {
-                          ...value.aids,
+                          ...withoutAllureControls(value.aids),
                           [ear]: { ...value.aids[ear]!, tier: e.target.value },
                         })
                       }
@@ -464,6 +484,75 @@ export function PatientForm({
               ),
           )}
         </div>
+        {supportsAllureActions(value.aids) ? (
+          <fieldset className="allure-controls wide">
+            <legend>Controls available in the Allure app</legend>
+            <p className="caption">
+              Confirm only controls you have checked in this patient’s app.
+            </p>
+            <label>
+              Allure app version
+              <input
+                type="text"
+                inputMode="text"
+                maxLength={40}
+                autoComplete="off"
+                placeholder="For example, 1.2.3"
+                value={value.aids.app?.version ?? ""}
+                onChange={(e) =>
+                  field("aids", {
+                    ...withoutAllureControls(value.aids),
+                    app: {
+                      name: "Widex Allure",
+                      version: e.target.value,
+                      confirmedActions: [],
+                    },
+                  })
+                }
+              />
+            </label>
+            {!!value.aids.app?.version.trim() && (
+              <div className="allure-control-options">
+                {actionOptions.map((action) => {
+                  const confirmed = value.aids.app?.confirmedActions.includes(
+                    action.id as AllureActionId,
+                  );
+                  return (
+                    <label className="allure-control-option" key={action.id}>
+                      <input
+                        type="checkbox"
+                        checked={confirmed}
+                        onChange={(e) => {
+                          const current = value.aids.app?.confirmedActions ?? [];
+                          const confirmedActions = e.target.checked
+                            ? [...new Set([...current, action.id as AllureActionId])]
+                            : current.filter((id) => id !== action.id);
+                          field("aids", {
+                            ...value.aids,
+                            app: {
+                              name: "Widex Allure",
+                              version: value.aids.app?.version ?? "",
+                              confirmedActions,
+                            },
+                          });
+                        }}
+                      />
+                      <span>
+                        <strong>{action.title}</strong>
+                        <small>{action.instruction}</small>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </fieldset>
+        ) : (
+          <p className="caption wide">
+            App controls can be confirmed only for a compatible, matching Allure
+            device profile. No tier capability is inferred.
+          </p>
+        )}
         <p className="caption">
           Illustrative device scope. Tier-specific differences are not inferred.
         </p>
@@ -918,7 +1007,11 @@ export function PatientCard({ id }: { id: string }) {
                           </section>
                           <section className="clinic-acoustic-details" aria-label="Acoustic analysis">
                           {event.analysis ? (
-                            <AcousticResult analysis={event.analysis} />
+                            <AcousticResult analysis={event.analysis} reviewBandIndices={
+                              event.status === "ready" && event.interpretation?.status === "ready"
+                                ? event.interpretation.result?.frequency_notes?.map((note) => note.band_index)
+                                : []
+                            } />
                           ) : (
                             <p
                               className={
@@ -940,34 +1033,7 @@ export function PatientCard({ id }: { id: string }) {
                               Automated interpretation: <Status value={event.interpretation.status} />
                             </p>
                           )}
-                          {event.interpretation?.result && (
-                            <section className="interpretation-block clinic-interpretation">
-                              <div className="clinic-panel-heading">
-                                <h3>Interpretation</h3>
-                                <Status value={event.interpretation.status} />
-                              </div>
-                              {event.interpretation.result.summary && (
-                                <p>{event.interpretation.result.summary}</p>
-                              )}
-                              {!!event.interpretation.result.observations
-                                ?.length && (
-                                <ul>
-                                  {event.interpretation.result.observations.map(
-                                    (observation, index) => (
-                                      <li key={index}>{observation}</li>
-                                    ),
-                                  )}
-                                </ul>
-                              )}
-                              {event.interpretation.result.limitations?.map(
-                                (limit, index) => (
-                                  <p className="caption" key={index}>
-                                    {limit}
-                                  </p>
-                                ),
-                              )}
-                            </section>
-                          )}
+                          <ClinicianGuidance event={event} aids={patient.aids} />
                           </section>
                           <details className="clinic-capture-details">
                             <summary>Recording quality and profile snapshot</summary>
@@ -1076,6 +1142,14 @@ export function PatientCard({ id }: { id: string }) {
                         ),
                     )}
                   </div>
+                  {patient.aids.app?.version && (
+                    <p className="caption clinic-allure-profile">
+                      Widex Allure app {patient.aids.app.version}
+                      {patient.aids.app.confirmedActions.length
+                        ? ` · ${patient.aids.app.confirmedActions.length} confirmed control${patient.aids.app.confirmedActions.length === 1 ? "" : "s"}`
+                        : " · no controls confirmed"}
+                    </p>
+                  )}
                 </div>
                 <div className="clinic-profile-section clinic-profile-note">
                   <h3>Note</h3>

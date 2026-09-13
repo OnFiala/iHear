@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import type { ProfileInput } from "@/lib/types";
+import { supportedActionIds, supportsAllureActions } from "@/lib/device-guidance";
 import { HttpError } from "./http";
 
 const finiteNumber = z.number().finite();
@@ -21,12 +22,26 @@ export const profileSchema = z
       side: z.enum(["left", "right", "bilateral"]),
       left: device.nullable(),
       right: device.nullable(),
+      app: z.object({
+        name: z.literal("Widex Allure"),
+        version: z.string().trim().max(40),
+        confirmedActions: z.array(z.enum(supportedActionIds)).max(3),
+      }).optional(),
     }),
     followUpDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     note: z.string().trim().max(4000),
     timezone: z.string().trim().min(1).max(80),
   })
   .superRefine((value, context) => {
+    const app = value.aids.app;
+    if (app && (new Set(app.confirmedActions).size !== app.confirmedActions.length ||
+      (app.confirmedActions.length > 0 && (!app.version || !supportsAllureActions(value.aids))))) {
+      context.addIssue({
+        code: "custom",
+        path: ["aids", "app"],
+        message: "Confirm each app control once, with an app version and supported hearing aids.",
+      });
+    }
     const count = value.audiogram.frequencies.length;
     if (
       value.audiogram.left.length !== count ||

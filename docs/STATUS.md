@@ -1,5 +1,35 @@
 # Implementation status
 
+## Dual-audience AI guidance — verified local candidate, 2026-09-13
+
+The next source milestone adds `ihear-event-v2` clinician/patient guidance and
+report template 4. Clinician recommendations cite supplied evidence, frequency
+notes mark actual recorded bands, and the patient sees a concise AI explanation
+plus controls confirmed for their exact Allure profile and app version. Current
+profile/catalog changes suppress historical device instructions in web and new
+PDF output. Existing result records and ready PDFs retain their historical bytes.
+
+Local evidence: 36 Node checks, five real PostgreSQL suites, 36 runtime/source
+checks, 96 worker tests (one expected database scheduler skip), production build
+and typecheck passed. The real worker plus PostgreSQL accepted a strict, explicitly
+synthetic provider response and generated a two-page searchable 7,295-byte PDF;
+both pages were visually reviewed. That test rolls back all records and budget
+changes and makes zero external provider calls. Four isolated guidance browser
+scenarios passed, including changed confirmation, evidence labels, graph markers,
+patient/clinician separation, 390px layout and Axe. The full twelve-scenario
+browser suite also passed on the production build with generated fake-device PCM,
+real DSP/Silero/YAMNet processing, QR, offline recovery, report reuse, microphone
+state, access isolation and WebKit checks. These are not physical phone tests.
+
+Independent final source/rollback review and private runtime activation are still
+pending. External interpretation remains intentionally off; live Astra response
+quality, actual API compatibility and clinical usefulness have not been validated.
+The existing API-off owner decision is a separate activation gate. The prepared
+additive v3 rollback is documented in SANDBOX.md and has not been activated.
+This section supersedes older current-source claims; the release below is prior
+runtime evidence until a new activation is recorded.
+
+
 Updated 2026-09-12. **Clear Signal implementation and local verification: PASS.
 Private Linux activation: PASS. Owner-only custom domain activation: PASS.
 Current release browser coverage: 12/12 PASS. Anonymous public

@@ -1,0 +1,200 @@
+{
+  "id": "0c1dd3cc-dd90-4d40-9889-744620f7b7ca",
+  "patientId": "9d51ea85-f74a-4932-a54c-bfee6e119c63",
+  "kind": "difficult",
+  "difficulty": "Following one person",
+  "environment": "Music or TV",
+  "capturedAt": "2026-09-13T12:00:00Z",
+  "createdAt": "2026-09-13T12:00:00Z",
+  "status": "ready",
+  "capture": {
+    "sampleRate": 48000,
+    "sourceLabel": "Explicit synthetic fixture",
+    "routing": "unknown",
+    "trackSettings": {
+      "autoGainControl": true
+    }
+  },
+  "profileSnapshot": {
+    "displayName": "Synthetic guidance fixture",
+    "audiogram": {
+      "frequencies": [
+        250,
+        500,
+        1000,
+        2000,
+        4000,
+        8000
+      ],
+      "left": [
+        20,
+        25,
+        35,
+        40,
+        50,
+        55
+      ],
+      "right": [
+        20,
+        25,
+        30,
+        40,
+        45,
+        50
+      ]
+    },
+    "aids": {
+      "side": "bilateral",
+      "left": {
+        "model": "Widex ALLURE BTE R D",
+        "tier": "220"
+      },
+      "right": {
+        "model": "Widex ALLURE BTE R D",
+        "tier": "220"
+      },
+      "app": {
+        "name": "Widex Allure",
+        "version": "fixture-1.0",
+        "confirmedActions": [
+          "allure_equalizer",
+          "allure_programs"
+        ]
+      }
+    },
+    "followUpDate": "2099-01-01",
+    "note": "Synthetic hearing evaluation: difficulty following television dialogue; no speech recognition test supplied.",
+    "timezone": "Europe/Prague"
+  },
+  "currentAids": {
+    "side": "bilateral",
+    "left": {
+      "model": "Widex ALLURE BTE R D",
+      "tier": "220"
+    },
+    "right": {
+      "model": "Widex ALLURE BTE R D",
+      "tier": "220"
+    },
+    "app": {
+      "name": "Widex Allure",
+      "version": "fixture-1.0",
+      "confirmedActions": [
+        "allure_equalizer",
+        "allure_programs"
+      ]
+    }
+  },
+  "analysis": {
+    "duration_seconds": 10,
+    "sample_rate": 48000,
+    "rms_dbfs": -24.5,
+    "peak_dbfs": -8,
+    "clipping_fraction": 0,
+    "silent": false,
+    "quality_flags": [],
+    "spectral_centroid_hz": 1800,
+    "bands": [
+      {
+        "low_hz": 80,
+        "high_hz": 250,
+        "relative_energy": 0.04
+      },
+      {
+        "low_hz": 250,
+        "high_hz": 500,
+        "relative_energy": 0.08
+      },
+      {
+        "low_hz": 500,
+        "high_hz": 1000,
+        "relative_energy": 0.18
+      },
+      {
+        "low_hz": 1000,
+        "high_hz": 2000,
+        "relative_energy": 0.28
+      },
+      {
+        "low_hz": 2000,
+        "high_hz": 4000,
+        "relative_energy": 0.32
+      },
+      {
+        "low_hz": 4000,
+        "high_hz": 8000,
+        "relative_energy": 0.1
+      }
+    ],
+    "speech_activity": {
+      "status": "ready",
+      "fraction": 0.7,
+      "model": "silero-vad",
+      "version": "fixture",
+      "aggregation": "duration_weighted"
+    },
+    "acoustic_categories": {
+      "status": "ready",
+      "categories": [
+        {
+          "label": "Speech",
+          "score": 0.6
+        },
+        {
+          "label": "Music",
+          "score": 0.3
+        }
+      ],
+      "model": "yamnet",
+      "version": "fixture"
+    }
+  },
+  "interpretation": {
+    "status": "ready",
+    "promptVersion": "ihear-event-v2",
+    "model": "gpt-6-astra",
+    "result": {
+      "summary": "Synthetic fixture: the patient reports difficulty with TV dialogue. The phone recording contains speech-like activity and energy across several frequency bands.",
+      "tip_ids": [
+        "share_clinician"
+      ],
+      "limitations": [
+        "Explicit synthetic provider fixture; no live AI quality claim.",
+        "Phone levels are uncalibrated and there is no speech recognition test."
+      ],
+      "observations": [
+        "Patient report, audiogram thresholds and phone measurements describe different aspects of the listening situation."
+      ],
+      "device_actions": [
+        {
+          "id": "allure_equalizer",
+          "title": "Compare sound with the equalizer",
+          "source": "https://www.widex.com/en/hearing-aids/apps/allure-app/",
+          "checkedAt": "2026-09-13",
+          "instruction": "In the Widex Allure app, open the equalizer and compare a small change to bass, middle or treble with the original sound. Keep the option you find comfortable; restore the original if it is less helpful. This does not specify professional fitting values."
+        }
+      ],
+      "frequency_notes": [
+        {
+          "band_index": 4,
+          "explanation": "The fixture has energy in this band; this does not establish what reached the ear or which words were understood.",
+          "review_question": "How does the reported dialogue difficulty relate to the audiogram and a speech assessment?"
+        }
+      ],
+      "patient_summary": "You reported difficulty following the television. This recording alone cannot tell us which words you heard; your listening note helps your audiologist review the situation.",
+      "recommendations": [
+        {
+          "text": "Review which voices or scenes are difficult and compare the patient's experience across available listening programs.",
+          "evidence_refs": [
+            "reported_event",
+            "audiogram",
+            "band:4"
+          ]
+        }
+      ],
+      "device_action_ids": [
+        "allure_equalizer"
+      ]
+    }
+  }
+}

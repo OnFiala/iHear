@@ -145,7 +145,7 @@ rollback worker consuming unfinished newer reports). Before checkout/build:
    nonzero, restart the old worker, drain and repeat before changing source.
 4. Fetch/check out the reviewed commit and apply its additive migration during
    `scripts/linux.py prepare`. Build artifacts from that clean commit and align
-   `REPORT_VERSION`. Version 3 preparation enforces 3 in both web and worker.
+   `REPORT_VERSION`. Version 4 preparation enforces 4 in both web and worker.
 5. Advance and verify the root domain HEAD/build binding for this exact release.
    Activate the prepared worker with `scripts/linux.py start`, start both web
    services, verify readiness, then resume the domain connector. Existing systemd/nginx units are reused when unchanged. Verify the
@@ -154,16 +154,28 @@ rollback worker consuming unfinished newer reports). Before checkout/build:
    unchanged API-off state, empty work queue and removal of successful raw audio.
 
 Rollback uses the same admission/drain/stop/recheck gate in the other direction.
-Use a reviewed forward rollback commit: restore the old web/worker implementation
-while retaining every applied migration file, and append an additive migration
-restoring report defaults to 2. Restore the saved v2 environment and rebuild with
-the canonical launcher. A literal checkout of the old commit is insufficient:
-Supabase migration reconciliation rejects applied versions absent from source.
-Never edit migration history to bypass that check. Historical ready PDFs of all
-versions remain retained. The prepared, unactivated forward rollback is local branch
-`rollback/clear-signal-v2`, commit `f930658`. Its default changes were verified in a
-transaction and rolled back; live activation has not been exercised. A later
-return to v3 must append a new default-v3 migration.
+For this v4 release, prepare a reviewed forward rollback commit restoring the v3
+web/worker implementation while retaining every applied migration file. Append
+an additive migration restoring report defaults to 3, restore the saved v3
+environment, and build matching artifacts with the canonical launcher. Advance
+the protected domain HEAD/build binding to those exact rollback artifacts before
+reopening ingress. Do not activate an unprepared rollback or reset the database.
+A literal old checkout is insufficient because migration reconciliation rejects
+applied versions missing from source. Historical ready PDFs and v2 interpretation
+records remain retained; a v3 renderer does not show all new guidance fields.
+
+The older `rollback/clear-signal-v2` branch (`f930658`) belongs to the earlier
+v3-to-v2 release and is not a rollback candidate for this migration. A later
+return to v4 must append a new default-v4 migration. Rollback activation must be
+reported separately from preparation or a transaction-only SQL check.
+
+Prepared candidate: `rollback/dual-guidance-v3` at
+`38b93f07cca28968dbaa8d3349a75aee99fccd2e`. It preserves the v4 migration and adds
+`20260913193644_restore_report_defaults_v3.sql`. Its application matches the prior
+v3 source. A local transaction verified report-column and both function defaults
+return to 3, then rolled back to 4. This is preparation evidence; the rollback
+has not been activated. The private release helper uses this additive rollback,
+never a database restore or a literal old checkout.
 
 A failed prepare/start leaves admission closed until the prepared
 revision or verified rollback is ready. Never use a database reset as rollback.

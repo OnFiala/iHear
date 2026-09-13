@@ -5,6 +5,15 @@ export type ProfileInput = {
     side: "left" | "right" | "bilateral";
     left: { model: string; tier: string } | null;
     right: { model: string; tier: string } | null;
+    app?: {
+      name: "Widex Allure";
+      version: string;
+      confirmedActions: Array<
+        | "allure_equalizer"
+        | "allure_direction_focus"
+        | "allure_programs"
+      >;
+    };
   };
   followUpDate: string;
   note: string;
@@ -75,14 +84,32 @@ export type ListeningEvent = {
   status: string;
   capture: Record<string, unknown>;
   profileSnapshot: ProfileInput;
+  currentAids?: ProfileInput["aids"];
   analysis: Analysis | null;
   interpretation: {
     status: string;
+    promptVersion?: string;
+    model?: string;
     result: {
       summary?: string;
       observations?: string[];
       tip_ids?: string[];
       limitations?: string[];
+      recommendations?: { text: string; evidence_refs: string[] }[];
+      frequency_notes?: {
+        band_index: number;
+        explanation: string;
+        review_question: string;
+      }[];
+      patient_summary?: string;
+      device_action_ids?: string[];
+      device_actions?: {
+        id: string;
+        title: string;
+        instruction: string;
+        source: string;
+        checkedAt: string;
+      }[];
     } | null;
   } | null;
   error?: string | null;

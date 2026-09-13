@@ -8,8 +8,9 @@ from typing import Any, Callable
 import httpx
 
 from .astra import (
-    MAXIMUM_COST_USD, MODEL, PROMPT_VERSION, AmbiguousProviderFailure, AstraClient,
-    AstraCostExceeded, AstraRejected, AstraUnavailable, build_event_input, prepare_request,
+    MAXIMUM_COST_USD, MAX_OUTPUT_TOKENS, MODEL, PROMPT_VERSION, AmbiguousProviderFailure, AstraClient,
+    AstraCostExceeded, AstraRejected, AstraUnavailable, build_event_input, expand_device_actions,
+    prepare_request,
 )
 from .config import Settings
 from .db import ReportInputStale, WorkerDatabase
@@ -102,9 +103,10 @@ class JobProcessor:
         base_provenance = {
             "model": MODEL,
             "prompt_version": PROMPT_VERSION,
+            "service_tier": "default",
             "reasoning_effort": "low",
             "tools": [],
-            "max_output_tokens": 1200,
+            "max_output_tokens": MAX_OUTPUT_TOKENS,
         }
         if not self.settings.openai_api_key:
             interpretation_id = self.database.persist_interpretation(
@@ -137,6 +139,9 @@ class JobProcessor:
             })
             return
         base_provenance["request_body_bytes"] = len(local_request[1])
+        submitted_payload = json.loads(local_request[0]["input"])
+        if isinstance(submitted_payload.get("input_coverage"), dict):
+            base_provenance["input_coverage"] = submitted_payload["input_coverage"]
         guard()
         reservation = self.database.reserve_budget(job, MAXIMUM_COST_USD, idempotency_key)
         reservation_status = reservation.get("status")
@@ -234,7 +239,8 @@ class JobProcessor:
             guard()
             interpretation_id = self.database.settle_and_persist_interpretation(
                 job["id"], analysis_id, usage_id, result.actual_cost_usd,
-                result.provider_request_id, result.result,
+                result.provider_request_id,
+                expand_device_actions(result.result, event, self.device_catalog),
                 {**base_provenance, "provider_request_id": result.provider_request_id, "usage": result.usage},
             )
         final = self.database.existing_interpretation(analysis_id)
@@ -263,7 +269,9 @@ class JobProcessor:
                 f"Unsupported report version {job['version']}; "
                 f"worker expects version {self.settings.report_version}"
             )
-        contents = generate_report(patient, events, int(report["input_revision"]))
+        contents = generate_report(
+            patient, events, int(report["input_revision"]), device_catalog=self.device_catalog,
+        )
         if len(contents) > MAX_REPORT_BYTES:
             raise RuntimeError("Generated report exceeds the 4 MB delivery limit")
         object_path = (
