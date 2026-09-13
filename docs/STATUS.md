@@ -1,6 +1,6 @@
 # Implementation status
 
-## Dual-audience AI guidance — verified local candidate, 2026-09-13
+## Dual-audience AI guidance — privately deployed, 2026-09-13
 
 The next source milestone adds `ihear-event-v2` clinician/patient guidance and
 report template 4. Clinician recommendations cite supplied evidence, frequency
@@ -21,13 +21,40 @@ browser suite also passed on the production build with generated fake-device PCM
 real DSP/Silero/YAMNet processing, QR, offline recovery, report reuse, microphone
 state, access isolation and WebKit checks. These are not physical phone tests.
 
-Independent final source/rollback review and private runtime activation are still
-pending. External interpretation remains intentionally off; live Astra response
-quality, actual API compatibility and clinical usefulness have not been validated.
-The existing API-off owner decision is a separate activation gate. The prepared
-additive v3 rollback is documented in SANDBOX.md and has not been activated.
-This section supersedes older current-source claims; the release below is prior
-runtime evidence until a new activation is recorded.
+Independent source and private deployment-template review accepted application
+commit `824bbaa630cf7520b131e9d68525a2b2f64e2ef2`, tree
+`106099448c32012f99b42fc903015dda8ecee1c5`, with no open actionable finding.
+That exact commit is deployed on the existing owner-only `https://ihear.ofops.co`;
+Next build `GE71DazkMg1IGH9fEpAiL`, protected manifest, running worker and root
+domain HEAD/build bindings agree. Installed domain operations are unchanged.
+Both web entries and the connector were stopped, old jobs/reports drained and the
+worker stopped/rechecked before the additive v4 migration and artifact build.
+Private database/artifact/environment and root binding/receipt backups were saved;
+no tunnel credential was copied. All preexisting patient, event, analysis,
+interpretation, report and API-ledger row hashes were preserved. The deployed
+application, worker and SQL report defaults agree on v4; pipeline remains v1.
+
+All twelve deployed browser scenarios passed in one 1.1-minute run using generated
+media and real DSP/models/PDF. Eleven anonymous/invalid-cookie/JWT/CORS access
+probes were denied by Access. The owner's existing domain browser visibly loaded
+the new Allure configuration fields and returned to the original patient directory
+without creating or editing a profile. Both web origins and the connector are
+active; domain units remain enabled. After the bounded synthetic acceptance run:
+ten profiles, 26 events/analyses, six reports including one ready v4, four new v2
+interpretations explicitly unavailable, and zero unfinished jobs, raw-audio
+objects or API calls. The managed MacBook app was restored and the temporary test
+server stopped. Public-source checks scanned the committed tree with zero findings.
+
+External interpretation remains intentionally off. Live Astra response quality,
+actual API compatibility and clinical usefulness have not been validated. The
+existing API-off owner decision is a separate activation gate; no real patient
+payload was sent to a provider. Physical iOS, hearing-aid/app-control behavior and
+a second authenticated non-owner identity were not tested in this release.
+Prepared additive v3 rollback `38b93f07cca28968dbaa8d3349a75aee99fccd2e` is published
+and available on the runtime, with transaction-only SQL verification and isolated
+forward/rollback binding plus emergency-shutdown tests. It was not activated.
+This section supersedes older current-source/runtime claims below. Subsequent
+source-only evidence commits do not change the deployed application identity.
 
 
 Updated 2026-09-12. **Clear Signal implementation and local verification: PASS.
