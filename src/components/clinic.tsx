@@ -63,6 +63,12 @@ const sample: ProfileInput = {
   timezone: "Europe/Prague",
 };
 
+const controlLabels: Record<AllureActionId, { title: string; description: string }> = {
+  allure_equalizer: { title: "Equalizer", description: "Bass, middle and treble controls" },
+  allure_direction_focus: { title: "Direction Focus", description: "Focus toward a person in front" },
+  allure_programs: { title: "Listening programs", description: "Switch between available programs" },
+};
+
 function withoutAllureControls(aids: ProfileInput["aids"]): ProfileInput["aids"] {
   const { app: _app, ...base } = aids;
   return base;
@@ -75,11 +81,13 @@ export function ClinicDirectory() {
     [followUp, setFollowUp] = useState(""),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
+    [hasLoaded, setHasLoaded] = useState(false),
     [version, setVersion] = useState(0);
   useEffect(() => {
     let active = true;
     const timer = setTimeout(
       async () => {
+        setLoading(true);
         try {
           await api("/api/session");
           const result = await api<{ patients: Patient[] }>(
@@ -88,6 +96,7 @@ export function ClinicDirectory() {
           if (active) {
             setPatients(result.patients);
             setError("");
+            setHasLoaded(true);
           }
         } catch (e) {
           if (active) setError((e as Error).message);
@@ -129,19 +138,21 @@ export function ClinicDirectory() {
         </p>
         <div className="directory-toolbar clinic-directory-toolbar">
           <label className="search-box">
-            <Search size={20} />
-            <input
-              type="search"
-              placeholder="Search names, notes or listening moments"
-              aria-label="Search patients and event content"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
+            <span>Search patients</span>
+            <span className="search-input">
+              <Search size={20} aria-hidden />
+              <input
+                type="search"
+                placeholder="Search names, notes or listening moments"
+                aria-label="Search patients and event content"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </span>
           </label>
           <div className="filter-row">
-            <SlidersHorizontal size={18} aria-hidden />
             <label>
-              <span className="sr-only">Result status</span>
+              <span>Result status</span>
               <select
                 aria-label="Result status"
                 value={status}
@@ -155,7 +166,7 @@ export function ClinicDirectory() {
               </select>
             </label>
             <label>
-              <span className="sr-only">Reported difficulty</span>
+              <span>Reported difficulty</span>
               <select
                 aria-label="Reported difficulty"
                 value={difficulty}
@@ -178,16 +189,24 @@ export function ClinicDirectory() {
             </label>
           </div>
         </div>
-        {error && <ErrorBox message={error} />}
+        {error && (
+          <div className="directory-error">
+            <ErrorBox message={error} />
+            <button className="button secondary small" disabled={loading} onClick={() => setVersion((v) => v + 1)}>
+              <RefreshCw size={16} />{loading ? "Trying again…" : "Try again"}
+            </button>
+          </div>
+        )}
         <div className="list-heading clinic-list-heading">
           <span>
-            {patients.length} {patients.length === 1 ? "patient" : "patients"}
+            {hasLoaded ? `${patients.length} ${patients.length === 1 ? "patient" : "patients"}` : "Patient list"}
           </span>
-          <span aria-live="polite">Updates automatically</span>
+          <span aria-live="polite">{error ? (hasLoaded ? "Showing last loaded results" : "Couldn’t load patients") : loading ? "Updating…" : "Updates automatically"}</span>
         </div>
-        {loading ? (
+        {loading && !hasLoaded ? (
           <Loading label="Loading patients…" />
-        ) : patients.length === 0 ? (
+        ) : error && patients.length === 0 ? null
+        : patients.length === 0 ? (
           <section className="empty-state compact clinic-empty-state">
             <h2>
               {q || status || difficulty || followUp
@@ -208,7 +227,7 @@ export function ClinicDirectory() {
             </Link>
           </section>
         ) : (
-          <div className="patient-grid clinic-patient-list">
+          <div className="patient-grid clinic-patient-list" aria-busy={loading}>
             <div className="clinic-patient-columns" aria-hidden="true">
               <span>Patient</span>
               <span>Follow-up</span>
@@ -230,10 +249,9 @@ export function ClinicDirectory() {
                       .slice(0, 2)
                       .join("")}
                   </span>
-                  <span>
+                  <span className="clinic-patient-name">
                     <strong>{p.displayName}</strong>
                     <small>
-                      <AudioAid side={p.aids.side} />
                       {p.aids.side === "bilateral"
                         ? "Both ears"
                         : p.aids.side === "left"
@@ -248,6 +266,7 @@ export function ClinicDirectory() {
                 </span>
                 <span className="clinic-patient-count">
                   {p.eventCount || 0}
+                  <span className="mobile-field-label">{p.eventCount === 1 ? "moment" : "moments"}</span>
                 </span>
                 <span className="clinic-patient-status">
                   {p.latestStatus ? (
@@ -538,8 +557,8 @@ export function PatientForm({
                         }}
                       />
                       <span>
-                        <strong>{action.title}</strong>
-                        <small>{action.instruction}</small>
+                        <strong>{controlLabels[action.id as AllureActionId].title}</strong>
+                        <small>{controlLabels[action.id as AllureActionId].description}</small>
                       </span>
                     </label>
                   );

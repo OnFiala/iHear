@@ -1,5 +1,22 @@
 # Implementation status
 
+## Main-model frontend review — locally verified, 2026-09-14
+
+The main model personally audited and repaired the directory, forms, patient
+home and result hierarchy without delegation. The original Clear Signal direction
+and glass artwork remain. Both patient actions precede installation help; Allure
+checkboxes align with concise labels; directory errors support recovery and
+truthfully identify retained results. Chart captions and guidance are more readable,
+and the clinician/patient preview uses two columns where space permits.
+
+Production build/typecheck, 41 Node tests and 11 production-build browser scenarios
+passed. Personal screenshot inspection and browser geometry checks include mobile
+and desktop; Chromium/WebKit and automated accessibility checks passed. Analysis
+and AI content used an explicit local fixture with zero provider calls. See
+`design-qa.md` for findings and evidence limits. No API activation, schema, worker,
+authorization or cost-boundary changes are included. Private deployment is pending
+for this revision; the previously deployed application identity is recorded below.
+
 ## Dual-audience AI guidance — privately deployed, 2026-09-13
 
 The next source milestone adds `ihear-event-v2` clinician/patient guidance and

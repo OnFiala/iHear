@@ -98,7 +98,7 @@ test("guidance does not render before a ready interpretation", () => {
 test("clinician guidance links the AI frequency note to the measured band", () => {
   const html = renderToStaticMarkup(createElement(ClinicianGuidance, { event: event(), aids }));
   assert.match(html, /500–1,000 Hz/);
-  assert.match(html, /relative energy 0.67/);
+  assert.match(html, /67.0% of relative spectral energy/);
   assert.match(html, /AI explanation/);
   assert.match(html, /Review this at the next appointment/);
 });

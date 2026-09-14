@@ -143,7 +143,7 @@ export function useHomeScreenInstall(): HomeScreenInstallController {
         </p>
       ) : (
         <div className="patient-install-actions">
-          <button type="button" className="button" onClick={install}>
+          <button type="button" className="button secondary" onClick={install}>
             {nativePrompt ? <Download size={17} /> : <Share2 size={17} />}
             {nativePrompt ? "Add to Home Screen" : "How to add"}
           </button>
@@ -166,10 +166,10 @@ export function useHomeScreenInstall(): HomeScreenInstallController {
           ))}
         </ol>
       )}
-      <p className="caption">
+      {(showGuidance || nativePrompt || requestAccepted) && <p className="caption">
         A Home Screen copy may use separate browser storage. If your profile is
         missing there, pair it again with a fresh clinician code.
-      </p>
+      </p>}
     </section>
   ) : null;
 

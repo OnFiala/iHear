@@ -8,22 +8,31 @@ export class ApiError extends Error {
   }
 }
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    headers: {
-      ...(init?.body instanceof FormData
-        ? {}
-        : { "Content-Type": "application/json" }),
-      ...init?.headers,
-    },
-    cache: "no-store",
-  });
-  const body = await response
-    .json()
-    .catch(() => ({ error: "The server returned an unreadable response." }));
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      ...init,
+      headers: {
+        ...(init?.body instanceof FormData
+          ? {}
+          : { "Content-Type": "application/json" }),
+        ...init?.headers,
+      },
+      cache: "no-store",
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw error;
+    throw new ApiError("Couldn’t connect. Check your connection or reload this page, then try again.", 0);
+  }
+  let body;
+  try {
+    body = await response.json();
+  } catch {
+    throw new ApiError("Couldn’t read the response. Reload this page to reconnect, then try again.", response.ok ? 502 : response.status);
+  }
   if (!response.ok)
     throw new ApiError(
-      body.error || "Something went wrong. Please try again.",
+      typeof body?.error === "string" ? body.error : "Something went wrong. Please try again.",
       response.status,
     );
   return body as T;

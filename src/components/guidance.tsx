@@ -85,64 +85,70 @@ export function ClinicianGuidance({ event, aids }: GuidanceProps) {
         a fitting change or replace clinical judgement.
       </p>
       {result.summary && <p className="guidance-summary">{result.summary}</p>}
-      {!!result.observations?.length && (
-        <section className="guidance-section">
-          <h4>AI observations</h4>
-          <ul>{result.observations.map((item, index) => <li key={index}>{item}</li>)}</ul>
-        </section>
-      )}
-      {!!result.recommendations?.length && (
-        <section className="guidance-section">
-          <h4>Recommendations to review</h4>
-          <ul>{result.recommendations.map((item, index) => (
-            <li key={index}>
-              <p>{item.text}</p>
-              <p className="caption">Based on: {item.evidence_refs.map((reference) => evidenceLabel(event, reference)).join(" · ")}</p>
-            </li>
-          ))}</ul>
-        </section>
-      )}
-      {!!result.frequency_notes?.length && (
-        <section className="guidance-section">
-          <h4>Frequency-range review</h4>
-          <div className="guidance-frequency-list">
-            {result.frequency_notes.map((note, index) => {
-              const range = Number.isInteger(note.band_index) ? frequencyRange(event, note.band_index) : null;
-              if (!range) return null;
-              return (
-                <article className="guidance-frequency" key={`${note.band_index}-${index}`}>
-                  <strong>{range?.label ?? `Band ${note.band_index + 1}`}</strong>
-                  {range && (
-                    <span>
-                      Recorded measurement: relative energy {range.energy.toFixed(2)}
-                    </span>
-                  )}
-                  <p><b>AI note:</b> {note.explanation}</p>
-                  <p><b>Review question:</b> {note.review_question}</p>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      )}
-      {(result.patient_summary || actions.length > 0) && (
-        <section className="guidance-preview">
-          <h4>Patient view preview</h4>
-          {result.patient_summary && <p>{result.patient_summary}</p>}
-          {actions.map((action) => (
-            <div className="guidance-action-preview" key={action.id}>
-              <strong>{action.title}</strong>
-              <span>{action.instruction}</span>
-            </div>
-          ))}
-        </section>
-      )}
-      {configurationChanged && !!result.device_action_ids?.length && (
-        <p className="guidance-config-changed">
-          App configuration has changed since this moment. Confirm the controls
-          before trying these suggestions.
-        </p>
-      )}
+      <div className="guidance-columns">
+        <div className="guidance-clinician-content">
+          {!!result.observations?.length && (
+            <section className="guidance-section">
+              <h4>AI observations</h4>
+              <ul>{result.observations.map((item, index) => <li key={index}>{item}</li>)}</ul>
+            </section>
+          )}
+          {!!result.recommendations?.length && (
+            <section className="guidance-section">
+              <h4>Recommendations to review</h4>
+              <ul>{result.recommendations.map((item, index) => (
+                <li key={index}>
+                  <p>{item.text}</p>
+                  <p className="caption">Based on: {item.evidence_refs.map((reference) => evidenceLabel(event, reference)).join(" · ")}</p>
+                </li>
+              ))}</ul>
+            </section>
+          )}
+          {!!result.frequency_notes?.length && (
+            <section className="guidance-section">
+              <h4>Frequency-range review</h4>
+              <div className="guidance-frequency-list">
+                {result.frequency_notes.map((note, index) => {
+                  const range = Number.isInteger(note.band_index) ? frequencyRange(event, note.band_index) : null;
+                  if (!range) return null;
+                  return (
+                    <article className="guidance-frequency" key={`${note.band_index}-${index}`}>
+                      <strong>{range?.label ?? `Band ${note.band_index + 1}`}</strong>
+                      {range && (
+                        <span>
+                          Recorded measurement: {(range.energy * 100).toFixed(1)}% of relative spectral energy
+                        </span>
+                      )}
+                      <p><b>AI note:</b> {note.explanation}</p>
+                      <p><b>Review question:</b> {note.review_question}</p>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+        </div>
+        <div className="guidance-patient-content">
+          {(result.patient_summary || actions.length > 0) && (
+            <section className="guidance-preview">
+              <h4>Patient view preview</h4>
+              {result.patient_summary && <p>{result.patient_summary}</p>}
+              {actions.map((action) => (
+                <div className="guidance-action-preview" key={action.id}>
+                  <strong>{action.title}</strong>
+                  <span>{action.instruction}</span>
+                </div>
+              ))}
+            </section>
+          )}
+          {configurationChanged && !!result.device_action_ids?.length && (
+            <p className="guidance-config-changed">
+              App configuration has changed since this moment. Confirm the controls
+              before trying these suggestions.
+            </p>
+          )}
+        </div>
+      </div>
       {!!result.limitations?.length && (
         <section className="guidance-limitations">
           <h4>Limits and missing evidence</h4>

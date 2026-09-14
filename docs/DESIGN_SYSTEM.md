@@ -17,6 +17,21 @@ landing page. The approved combined visual is `docs/design/clear-signal-referenc
   About & privacy contains microphone/storage information and re-pairing.
 - The clinician directory uses rows. Patient review opens on Moments; Profile
   holds the audiogram, aids and editor. Pairing and acoustic evidence expand on demand.
+- Application headings top out at 40 px; the landing hero keeps its own scale.
+  Directory identities group the avatar, readable name and fitted-ear label.
+  All filters have visible labels; mobile rows label moment counts explicitly.
+- Allure confirmation cards use concise control names, separate from patient
+  instructions. Checkbox/radio sizing must not inherit text-input height or
+  nested-fieldset sibling spacing.
+- Patient recording actions precede the Home Screen offer. Install details
+  expand on request and remain available through About & privacy. A moment detail
+  returns to the listening space without suggesting that pairing is required again.
+- Clinician AI guidance uses 16 px reading text and a separate patient-preview
+  column on wider screens. Recorded relative energy uses the same percentage
+  representation in the graph and the frequency review. Mobile retains one column.
+- Failed directory loads show recovery actions without an empty-patient claim.
+  Failed refreshes label retained rows as last-loaded results. Invalid API responses
+  must be rejected rather than rendered as successful application data.
 - The PDF begins with a chronological listening log and preserves actual DSP,
   model provenance, unavailable/failed interpretation and synthetic audiogram
   evidence in technical details. Report template 4 has a separate cache identity and distinguishes clinician and patient AI guidance.

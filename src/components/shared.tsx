@@ -30,7 +30,7 @@ export function Header({ patient = false, clinic = false, actions }: {
   return (
     <header className={`site-header${patient ? " patient-header" : clinic ? " clinic-header" : ""}`}>
       <Brand />
-      <nav aria-label="Main navigation">
+      {actions !== false && <nav aria-label="Main navigation">
         {actions ?? (patient ? (
           <Link href="/app/pair" className="quiet-link">
             Pair profile
@@ -50,7 +50,7 @@ export function Header({ patient = false, clinic = false, actions }: {
             </Link>
           </>
         ))}
-      </nav>
+      </nav>}
     </header>
   );
 }
@@ -85,8 +85,8 @@ export function Status({ value }: { value: string }) {
     uploading: "Uploading",
     failed: "Failed",
     queued: "Queued",
-    held_budget: "budget paused",
-    held_ambiguity: "interpretation paused",
+    held_budget: "Budget paused",
+    held_ambiguity: "Interpretation paused",
   };
   const clean =
     labels[value] || value.replaceAll("_", " ").replaceAll("-", " ");
@@ -322,7 +322,7 @@ export function AcousticResult({ analysis, reviewBandIndices = [] }: { analysis:
       )}
       <h4>Relative spectral energy</h4>
       <p className="caption">
-        Phone sample; not calibrated sound pressure or hearing level.
+        Share of recorded energy by frequency range (Hz). Not calibrated sound pressure or hearing level.
       </p>
       <div
         className="band-chart"

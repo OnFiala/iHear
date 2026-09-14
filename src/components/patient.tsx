@@ -487,8 +487,7 @@ export function PatientHome() {
             Offline. Moments stay on this device until you reconnect.
           </div>
         )}
-        {error && <ErrorBox message={error} />}{" "}
-        {install.offer}
+        {error && <ErrorBox message={error} />}
         {questionEvent && captureAvailable && microphoneControl}
         {questionEvent ? (
           <section className="glass questions patient-questionnaire">
@@ -637,6 +636,7 @@ export function PatientHome() {
                 ))}
               </div>
             )}
+            {install.offer}
             <details
               id="patient-about"
               className="patient-info"
@@ -924,7 +924,10 @@ export function PatientEvent({ id }: { id: string }) {
     const load = () =>
       api<{ event: ListeningEvent }>("/api/events/" + id)
         .then((r) => {
-          if (active) setEvent(r.event);
+          if (active) {
+            setEvent(r.event);
+            setError("");
+          }
         })
         .catch((e) => {
           if (active) setError(e.message);
@@ -938,7 +941,7 @@ export function PatientEvent({ id }: { id: string }) {
   }, [id]);
   return (
     <>
-      <Header patient />
+      <Header patient actions={false} />
       <main tabIndex={-1} id="main" className="patient-main">
         <Link href="/app" className="back-link">
           <ArrowLeft size={18} />
