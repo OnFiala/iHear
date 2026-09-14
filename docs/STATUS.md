@@ -1,6 +1,6 @@
 # Implementation status
 
-## Main-model frontend review — locally verified, 2026-09-14
+## Main-model frontend review — privately deployed, 2026-09-14
 
 The main model personally audited and repaired the directory, forms, patient
 home and result hierarchy without delegation. The original Clear Signal direction
@@ -14,8 +14,28 @@ passed. Personal screenshot inspection and browser geometry checks include mobil
 and desktop; Chromium/WebKit and automated accessibility checks passed. Analysis
 and AI content used an explicit local fixture with zero provider calls. See
 `design-qa.md` for findings and evidence limits. No API activation, schema, worker,
-authorization or cost-boundary changes are included. Private deployment is pending
-for this revision; the previously deployed application identity is recorded below.
+authorization or cost-boundary changes are included.
+
+Application commit `f4f3b9620aedf5f07f1291da023557116cb02bd6` is deployed on the
+existing owner-only domain, Next build `zm1BEREEwiWGR7aYp90iR`. Clean source,
+prepared artifacts, the running worker's linux/amd64 manifest and root domain
+HEAD/build bindings match. Both web entries, connector and stack are active;
+domain services remain boot-enabled. Both admissions were closed, old work drained,
+and the database, prior build/image, environment and root bindings backed up before
+activation. No migration or tunnel credential copy was involved. Preexisting
+patient, event, analysis, interpretation, report and API-ledger row hashes match.
+The existing ten profiles, 26 events/analyses and six reports remain; unfinished
+jobs, raw-audio objects and API calls are zero. API use remains disabled.
+
+Live-browser refresh was rejected by automatic review with a Cloudflare-dashboard
+access reason. No dashboard was accessed or alternative live-browser path used;
+UI evidence is local and deployed identity/service evidence is from the protected
+runtime. The first post-deploy worker check compared a Docker index/config ID with
+a different identity type; the corrected check follows SANDBOX.md and compares
+running/prepared platform descriptors. It passed without a runtime change.
+The temporary local preview was stopped and the managed MacBook app restored.
+Rollback retains the prior `824bbaa` source and exact artifacts without database
+restoration. This section supersedes earlier current-deployment identities below.
 
 ## Dual-audience AI guidance — privately deployed, 2026-09-13
 
