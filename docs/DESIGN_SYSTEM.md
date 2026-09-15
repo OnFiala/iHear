@@ -7,6 +7,12 @@ identity and a denser directory. A cobalt ear with two sound waves replaces the
 abstract glass hero. The original `docs/design/clear-signal-reference.png` remains
 historical direction evidence; it is not the current logo specification.
 
+The ear sits directly on the white page without a tinted enclosing panel.
+Pairing, installation help and the patient guidance preview use white surfaces
+and fine borders. The expanded clinician moment uses a narrow cobalt edge to
+retain its selected state without a large blue fill. Blue and yellow remain on
+the two patient actions; chart backgrounds retain their data-reading purpose.
+
 ## Implementation
 - `src/app/globals.css` owns the shared tokens: ink #17212D, muted #52627A,
   cobalt #184DD8, pale blue #EDF3FF, yellow #F5DEA0 and border #DCE2EC.

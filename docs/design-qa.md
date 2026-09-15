@@ -78,3 +78,17 @@ help, synthetic microphone permission changes and separation of guidance audienc
 The full audio/worker/database pipeline was not rerun for these frontend changes.
 Physical phone installation, OS permission persistence and hearing-aid behaviour
 were not tested. Deployment evidence is recorded separately in `STATUS.md`.
+# Quiet surfaces follow-up — 2026-09-15
+
+The owner accepted the listening identity but found the large tinted background
+distracting. The hero now sits directly on white. Pairing, installation help and
+the patient guidance preview also use white panels; a narrow cobalt edge marks
+the expanded clinician moment and the patient preview. Primary action colors,
+chart surfaces, typography, layout and application behavior are preserved.
+
+Production build/typecheck and 11 existing Chromium/WebKit browser scenarios
+passed, including Axe accessibility, forms, patient access and guidance. Initial
+browser startup was denied by the local process sandbox; the same suite passed
+after scoped local execution was permitted. Personal inspection covers the
+390px landing and desktop clinician result with an explicitly synthetic provider
+fixture. No external model calls or new physical-device tests were made.
