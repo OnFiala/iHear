@@ -1,6 +1,6 @@
 # Implementation status
 
-## Listening identity and patient directory — validated locally, 2026-09-15
+## Listening identity and patient directory — privately deployed, 2026-09-15
 
 The main model personally replaced the abstract hero with a recognizable cobalt
 ear/sound illustration and matching vector header/app marks. The packaged WebP
@@ -18,10 +18,26 @@ browser review includes a local 13-profile synthetic directory, accent-free name
 search, desktop/mobile layouts, and the new hero. No provider call, physical-phone
 test or new acoustic-pipeline test is claimed for this change.
 
-Private release is being prepared against the verified previous `f4f3b962` runtime.
-Both entries will close for the update, with previous artifacts and data backed up.
-Rollback restores the prior app/build while retaining the compatible additive
-search schema and existing data. Interpretation API use remains disabled.
+Application `dd95a25dcc91c9d85bef40734ae0f9214ac047d6`, Next build
+`NsXBZeDjsIUE_eKj05gBR`, is deployed on the existing owner-only domain. Source,
+artifact manifest, running worker platform descriptor, root domain binding and
+both web entries match. Both admissions were closed and jobs drained before
+backing up the database, prior build/image, environment and root bindings.
+The new search migration and both indexes are installed; search finds existing
+profiles by name prefix and retains the private function's grants. Hero bytes
+match the committed asset at both origins. All preexisting patient, event,
+analysis, interpretation, report and API-ledger hashes are preserved: 12 profiles,
+28 events/analyses, six reports, zero unfinished jobs, raw-audio objects or API
+calls. No test profiles were added remotely.
+
+The live owner browser loaded the new directory and ear illustration, and a
+previously failing name prefix returned the existing profile. A local embedded
+browser panel crashed while opening its native calendar; its internal error page
+was blocked by the browser tool's URL policy. The independent date-input browser
+test passed. This limitation does not change the verified live search/hero evidence.
+Rollback retains `f4f3b962` and its exact artifacts without restoring the database;
+the compatible additive search schema remains installed. Interpretation API use
+remains disabled. This section supersedes the historical deployment below.
 
 ## Main-model frontend review — privately deployed, 2026-09-14
 

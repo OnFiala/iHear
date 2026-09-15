@@ -31,6 +31,13 @@ accessibility were checked. These are not physical-device measurements.
 Operator screenshots and receipts remain in ignored private evidence. The old
 glass illustration is retained as history, not the active identity.
 
+After private deployment, the owner browser visibly loaded the new directory and
+the 960-pixel ear image; an incomplete name returned the existing profile where
+the old version returned no result. Opening the native calendar in the local
+embedded panel crashed that panel; its internal error page was blocked by tool
+URL policy. Independent date-entry/parameter checks passed. No physical-device
+calendar claim is made from that interrupted interaction.
+
 ## Previous review — 2026-09-14
 
 The owner requested a personal review and implementation by the main model.

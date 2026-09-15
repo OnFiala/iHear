@@ -19,19 +19,19 @@ test("directory search finds partial and accent-free words with exact filters an
       [owner, name, profile, aids, note],
     )).rows[0].id as string;
     const jana = await insert(workspace, "Jana Nováková", "Synthetic café conversation");
-    const robert = await insert(workspace, "Robert McDough", "Synthetic garden visit");
+    const robin = await insert(workspace, "Robin Mercer", "Synthetic garden visit");
     const foreign = await insert(otherWorkspace, "Jana Nováková", "Synthetic café conversation");
     await client.query(`insert into ihear.events(id, workspace_id, patient_id, kind, difficulty, environment, captured_at, capture, profile_snapshot, profile_version, audio_object_path, audio_sha256, request_fingerprint, audio_bytes, duration_seconds, pipeline_version, status)
       values ($1, $2, $3, 'difficult', 'Several people talking', 'Music or TV', now(), '{"sourceLabel":"Phone microphone"}', $4, 1, $5, $6, $7, 32044, 1, 1, 'ready')`,
-      [randomUUID(), workspace, robert, { displayName: "Robert McDough", audiogram: profile, aids }, `explicit-test/${randomUUID()}.wav`, Buffer.alloc(32, 2), Buffer.alloc(32, 3)]);
+      [randomUUID(), workspace, robin, { displayName: "Robin Mercer", audiogram: profile, aids }, `explicit-test/${randomUUID()}.wav`, Buffer.alloc(32, 2), Buffer.alloc(32, 3)]);
     const search = async (q: string, owner = workspace, status: string | null = null, difficulty: string | null = null, date: string | null = null) => (await client.query(
       "select id, event_count from ihear.search_patients($1,$2,$3,$4,$5)", [owner, q, status, difficulty, date],
     )).rows;
     for (const q of ["jan nov", "NOVAK", "Jana Nováková", "cafe", "café", "caf"]) {
       assert.deepEqual((await search(q)).map((p) => p.id), [jana], q);
     }
-    for (const q of ["Rob", "mcdo", "gard", "MUS", "sever peop", "micro", "Robert: McDough"]) {
-      assert.deepEqual((await search(q)).map((p) => p.id), [robert], q);
+    for (const q of ["Rob", "merc", "gard", "MUS", "sever peop", "micro", "Robin: Mercer"]) {
+      assert.deepEqual((await search(q)).map((p) => p.id), [robin], q);
     }
     assert.equal((await search("mus"))[0].event_count, "1");
     assert.equal((await search("jan", otherWorkspace))[0].id, foreign);
@@ -48,7 +48,7 @@ test("directory search finds partial and accent-free words with exact filters an
     assert.equal((await search("jan", workspace, null, null, "upcoming")).length, 0);
     assert.equal((await search('"café conversation"')).length, 1);
     assert.equal((await search('"conversation café"')).length, 0);
-    assert.equal((await search("Jana OR Robert")).length, 2);
+    assert.equal((await search("Jana OR Robin")).length, 2);
     assert.equal((await search("Jana -cafe")).length, 0);
     for (const q of ["missingword", "!!!", "' ; DROP TABLE ihear.patients; --"]) assert.equal((await search(q)).length, 0, q);
     assert.equal((await search(" ")).length, 2);
