@@ -78,4 +78,11 @@ Await/record owner observation for lock/background, microphone restart and reope
 
 ## Public release gate: NOT RUN
 
-Requires approved Vercel deployment without a login wall, hosted Supabase and Render worker, production QR origin, fresh physical-device capture/reporting, and queue processing while the MacBook is off. No localhost, LAN or development relay may remain in that runtime. Local acceptance cannot pass this separate gate.
+The current private Linux deployment is recorded in STATUS.md. Anonymous public
+activation follows SECURITY.md, including isolated data, protected ingress,
+capacity, dependency maintenance and recovery. The earlier Vercel/Supabase/Render
+plan is an alternative, not a required platform choice. Fresh physical-device
+HTTPS capture/reporting and processing independently of the MacBook remain
+acceptance requirements. CHALLENGE.md separates product readiness from the
+GPT-6 Astra Challenge entry requirements. Private acceptance cannot pass either
+the public release gate or the contest submission gate by itself.

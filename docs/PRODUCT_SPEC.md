@@ -3,7 +3,7 @@
 iHear is an illustrative, English-first patient PWA and clinician website for exploring everyday listening moments. Clinical interpretation remains with the clinician. This is not a diagnostic service, medical device, fitting prescription or claimed validated clinical tool.
 
 ## Journeys
-- `/`: public landing and immutable curated synthetic showcase.
+- `/`: introductory landing on the existing owner-only deployment.
 - `/clinic`: a visitor's isolated demo directory; full-text search across profiles, notes and event descriptions; date, difficulty and processing filters.
 - `/clinic/patients/new`: synthetic name, left/right audiogram, fitted ears and per-ear ALLURE BTE R D tier, follow-up, clinic timezone, optional note.
 - `/clinic/patients/[id]`: editable setup, audiogram chart, expiring/revocable QR and manual pairing code, events, independent analysis stages and PDF report.
@@ -26,4 +26,9 @@ Server-issued scoped capabilities replace a visible login; they are not clinical
 Astra is limited to low reasoning, bounded structured inputs and output tokens, and no tools or loops. Global budget caps are USD 20 lifetime and USD 3/day, including development. Per-profile ceiling is five live analysed events/day. Missing credentials and paused budgets preserve real acoustic results. Infrastructure spending is separate from API caps.
 
 ## Release boundary
-This milestone is local. A later Vercel + hosted Supabase + Render release must pass a fresh-device HTTPS capture/report test and continue processing with the MacBook off. No local test is evidence of that gate.
+The current application runs on the dedicated private Linux sandbox and owner-only
+domain. STATUS.md records the deployed revision and evidence. A public release
+must satisfy SECURITY.md, including fresh-device HTTPS capture/report behavior,
+isolated data, capacity and recovery. Hosted Vercel/Supabase/Render remains an
+alternative proposal rather than a requirement. CHALLENGE.md tracks the separate
+GPT-6 Astra Challenge target and remaining submission evidence.

@@ -1,5 +1,34 @@
 # Implementation status
 
+## Quiet surfaces and challenge readiness — 2026-09-15
+
+Application `f86399723ed701b1c1878e1e94f3bb5c8c66f77e`, Next build
+`haJSDfIQufEpeclv7iYYo`, is deployed on the existing owner-only domain. This
+presentation-only follow-up removes the tinted hero backdrop and gives pairing,
+installation help and the patient guidance preview white surfaces. An expanded
+clinician moment uses a narrow blue edge. The ear, primary action colors,
+measurements and functional flows are unchanged.
+
+Production build/typecheck and 11 local browser scenarios passed, including Axe
+and WebKit. Personal desktop/mobile review used the real local app and an explicit
+synthetic guidance fixture. The live domain visibly shows the transparent hero
+background on white and the white selected moment with its cobalt edge.
+Source/artifact/running-worker/root-domain identities and both web entries match.
+Prior row hashes are preserved: 12 profiles, 28 analyses and six reports; zero
+unfinished jobs, raw-audio objects or provider calls. API remains disabled.
+Rollback retains the exact `dd95a25` source, build, image and protected bindings;
+no schema change or database restoration is involved. The temporary local preview
+was stopped; the managed local web was not running at this task's preflight.
+
+The owner confirmed **GPT-6 Astra Challenge on Product Hunt** as the target.
+[CHALLENGE.md](CHALLENGE.md) records freshly verified organizer links, the
+September 18 launch date, product evidence and remaining gaps. The private
+acoustic prototype works; complete AI/physical-phone demonstration and contest
+readiness remain partial. Public release is still not authorized. The full
+contest guide and submission acceptance have not been verified.
+
+This section supersedes the earlier current application identity below.
+
 ## Listening identity and patient directory — privately deployed, 2026-09-15
 
 The main model personally replaced the abstract hero with a recognizable cobalt
