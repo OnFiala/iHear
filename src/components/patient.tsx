@@ -39,6 +39,7 @@ import {
 import { Header, ErrorBox, Loading, Status, EventList } from "./shared";
 import { PatientGuidance } from "./guidance";
 import { useHomeScreenInstall } from "./home-screen-install";
+import { PatientDemoStart, PATIENT_DEMO_NOTE } from "./patient-demo-start";
 const PROFILE_KEY = "ihear-paired-profile";
 export function PatientHome() {
   const [patient, setPatient] = useState<Patient | null>(null),
@@ -58,7 +59,9 @@ export function PatientHome() {
     [recent, setRecent] = useState(false),
     [aboutOpen, setAboutOpen] = useState(false),
     [offline, setOffline] = useState(false),
-    [sessionRevoked, setSessionRevoked] = useState(false);
+    [sessionRevoked, setSessionRevoked] = useState(false),
+    [canReviewDemo, setCanReviewDemo] = useState(false),
+    [demoWorkspaceId, setDemoWorkspaceId] = useState<string | null>(null);
   const mic = useRef<Microphone | null>(null),
     recordingLock = useRef(false),
     about = useRef<HTMLDetailsElement | null>(null),
@@ -73,9 +76,10 @@ export function PatientHome() {
     setOffline(!navigator.onLine);
     async function init() {
       try {
-        const s = await api<{ patient: Patient | null }>("/api/session");
+        const s = await api<{ patient: Patient | null; workspaceId: string }>("/api/session");
         if (cancelled) return;
         setPatient(s.patient);
+        setDemoWorkspaceId(s.workspaceId || null);
         setSessionRevoked(false);
         if (s.patient)
           localStorage.setItem(PROFILE_KEY, JSON.stringify(s.patient));
@@ -164,6 +168,18 @@ export function PatientHome() {
       document.removeEventListener("visibilitychange", visibility);
     };
   }, [patient]);
+
+  useEffect(() => {
+    let active = true;
+    setCanReviewDemo(false);
+    if (patient?.note === PATIENT_DEMO_NOTE && !sessionRevoked) {
+      // Only show the bridge when this browser also owns this exact demo profile.
+      void api<{ patient: Patient }>(`/api/patients/${encodeURIComponent(patient.id)}`)
+        .then((result) => { if (active) setCanReviewDemo(result.patient.id === patient.id); })
+        .catch(() => {});
+    }
+    return () => { active = false; };
+  }, [patient, sessionRevoked]);
 
   function microphone(): Microphone {
     if (!mic.current)
@@ -429,27 +445,33 @@ export function PatientHome() {
   if (!patient)
     return (
       <>
-        <Header patient />
+        <Header patient actions={<Link className="quiet-link" href="/">Back to home</Link>} />
         <main tabIndex={-1} id="main" className="patient-main unpaired">
-          <h1>Pair this phone</h1>
-          <p className="lead">Scan your clinician’s pairing code to begin.</p>
-          <div className="glass onboarding-art">
-            <ScanLine size={68} strokeWidth={1.2} />
-          </div>
+          <h1>Your listening space</h1>
+          <p className="lead">Save everyday listening moments and review them with your audiologist.</p>
           {error && <ErrorBox message={error} />}
-          <Link className="button full" href="/app/pair">
+          <PatientDemoStart disabled={offline || Boolean(error)} workspaceId={demoWorkspaceId} />
+          <section className="patient-pair-entry" aria-labelledby="patient-pair-heading">
+          <h2 id="patient-pair-heading">Have a clinician’s code?</h2>
+          <p>Connect this phone to the profile your clinician prepared.</p>
+          <Link className="button secondary full" href="/app/pair">
             <ScanLine size={22} />
-            Pair a profile
+            Pair with clinician
           </Link>
           <p className="caption">
             You can scan the QR code or enter its code manually.
           </p>
+          </section>
+          <Link href="/clinic" className="text-button">Open clinician demo <ArrowRight size={17} /></Link>
+          <details className="patient-entry-help">
+          <summary>Keep iHear on your phone</summary>
           <p className="caption">
             A Home Screen copy may use separate browser storage. If this profile
             is missing after installation, pair it again with a fresh clinician
             code.
           </p>
           {install.offer}
+          </details>
           <div className="patient-boundary">
             <ShieldCheck size={18} />
             <p>Illustrative demo. Use synthetic information only.</p>
@@ -479,6 +501,8 @@ export function PatientHome() {
           <div>
             <h1>{patient.displayName.split(" ")[0]}</h1>
             <p>Next visit · {dateLabel(patient.followUpDate)}</p>
+            {patient.note === PATIENT_DEMO_NOTE && <p className="caption patient-demo-label">Demo profile · Example audiogram and hearing aids</p>}
+            {canReviewDemo && <Link className="text-button" href={`/clinic/patients/${patient.id}`}>Open clinician view <ArrowRight size={17} /></Link>}
           </div>
         </div>
         {offline && (
@@ -779,6 +803,7 @@ export function PairConfirmation({ token }: { token: string }) {
           </>
         )}
         {error && <ErrorBox message={error} />}
+        <Link className="back-link" href="/app"><ArrowLeft size={18} />Back to patient app</Link>
       </main>
     </>
   );
@@ -855,7 +880,7 @@ export function PairScanner() {
       <main tabIndex={-1} id="main" className="patient-main scanner-page">
         <Link href="/app" className="back-link">
           <ArrowLeft size={18} />
-          Listening space
+          Back to patient app
         </Link>
         <h1>Pair this phone</h1>
         <p>Scan the QR code or enter its pairing code.</p>

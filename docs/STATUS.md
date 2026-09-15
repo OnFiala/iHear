@@ -1,5 +1,22 @@
 # Implementation status
 
+## Patient demo entry — verified candidate, 2026-09-15
+
+An unpaired visitor can create an explicitly fictional example profile from
+Patient app, confirm it and use the real recording workflow without a QR code.
+Existing pairings are preserved. The scanner and profile confirmation have a
+return path; a verified demo owner can open the corresponding clinician card.
+The normal authorization, microphone consent, worker and API-off boundaries stay
+in force. No schema or server change is included.
+
+Production build/typecheck, 41 Node checks and the affected browser checks passed.
+The local end-to-end case used synthetic 1kHz PCM with the actual backend/worker,
+verified a ready acoustic analysis, clinician visibility and cross-owner denial.
+Explicit failure fixtures cover reload recovery without duplicate creation.
+The main model authored and visually checked the change; independent security
+review accepted the source after the reload persistence repair. See design-qa.md.
+This candidate is not yet a deployment claim; the prior live identity is below.
+
 ## Quiet surfaces and challenge readiness — 2026-09-15
 
 Application `f86399723ed701b1c1878e1e94f3bb5c8c66f77e`, Next build

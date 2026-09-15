@@ -78,6 +78,32 @@ help, synthetic microphone permission changes and separation of guidance audienc
 The full audio/worker/database pipeline was not rerun for these frontend changes.
 Physical phone installation, OS permission persistence and hearing-aid behaviour
 were not tested. Deployment evidence is recorded separately in `STATUS.md`.
+## Patient demo entry — 2026-09-15
+
+The unpaired patient entry previously offered only clinician pairing. It now
+offers a clearly labelled example profile through the existing create/pair APIs,
+followed by the ordinary explicit profile confirmation. Clinician QR/manual entry
+remains available and both scanner and confirmation have a return link. Paired
+patients keep their existing profile. A demo owner can open the corresponding
+clinician card after server authorization; the demo note grants no access.
+
+The main model authored the change and personally inspected the 390px entry,
+confirmation and paired home. Production build/typecheck and 41 Node checks
+passed. Chromium/WebKit accessibility and existing frontend scenarios passed;
+the five affected patient access/demo scenarios passed on the final source.
+The real local fake-device case creates one profile without QR, captures known
+1kHz PCM, runs the actual worker, checks ready analysis/centroid and clinician
+evidence, preserves pairing on reload and denies a different owner access.
+Two explicitly intercepted failure tests prove same-tab reload recovery without
+a second profile POST. The tests now wait for the actual error region, not the
+unrelated empty Next route announcer. No physical microphone or provider API was
+used. Physical iOS installation and permission persistence remain separate.
+
+Independent security review accepted the source after a LOW duplicate-creation
+finding was repaired with workspace-scoped sessionStorage. Uncertain creation
+stops automatic retries and directs the visitor to their clinician directory.
+Evidence captures and logs remain ignored; deployment identity is in STATUS.md.
+
 # Quiet surfaces follow-up — 2026-09-15
 
 The owner accepted the listening identity but found the large tinted background

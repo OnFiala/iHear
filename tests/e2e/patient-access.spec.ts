@@ -141,6 +141,7 @@ test("native install dismissal falls back to truthful manual instructions", asyn
     route.fulfill({ status: 200, json: { patient: null } }),
   );
   await page.goto(base + "/app", { waitUntil: "networkidle" });
+  await page.getByText("Keep iHear on your phone", { exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Keep iHear on this phone" }),
   ).toBeVisible();

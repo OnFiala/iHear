@@ -39,6 +39,11 @@ the two patient actions; chart backgrounds retain their data-reading purpose.
 - Patient recording actions precede the Home Screen offer. Install details
   expand on request and remain available through About & privacy. A moment detail
   returns to the listening space without suggesting that pairing is required again.
+- Unpaired visitors see two clear paths: Try patient demo without a QR, or Pair
+  with clinician. The demo uses an explicitly fictional profile and real capture;
+  it retains profile acknowledgement and a separate microphone action. Home and
+  clinician links prevent dead ends; the QR screen also has an explicit return.
+  Home Screen help is secondary to entering the app.
 - Clinician AI guidance uses 16 px reading text and a separate patient-preview
   column on wider screens. Recorded relative energy uses the same percentage
   representation in the graph and the frequency review. Mobile retains one column.

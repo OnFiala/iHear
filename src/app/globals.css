@@ -329,6 +329,14 @@ pre { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; backgroun
 .questions .button { width: 100%; }
 .unpaired { margin-top: 32px; }
 .unpaired h1 { font-size: 34px; }
+.patient-demo-entry { padding: 20px; margin: 24px 0; border: 1px solid var(--border); border-top: 3px solid var(--accent); border-radius: var(--radius); }
+.patient-demo-entry h2, .patient-pair-entry h2 { font-size: 20px; margin-bottom: 10px; }
+.patient-demo-entry > .caption { margin: 12px 0 0; }
+.patient-pair-entry { padding-top: 6px; }
+.patient-pair-entry > .caption { margin: 10px 0 0; }
+.patient-entry-help { border-top: 1px solid var(--border); margin-top: 14px; }
+.patient-identity .patient-demo-label { margin-top: 8px; }
+.patient-identity .text-button { margin-top: 6px; }
 .onboarding-art { display: grid; place-items: center; width: 70px; height: 70px; margin-bottom: 26px; background: var(--accent-soft); color: var(--accent); border: 0; border-radius: 10px; }
 .patient-boundary { margin-top: 28px; display: flex; align-items: flex-start; gap: 10px; color: var(--muted); }
 .patient-boundary p { font-size: 13px; }
