@@ -202,6 +202,20 @@ All worker functions are `SECURITY INVOKER`, live only in private schema `ihear`
 
 `ihear.search_patients(workspace_id, query, status, difficulty, follow_up)` returns patients only from the supplied server-authorized workspace. Query matching uses PostgreSQL full-text search against patient display name/note and an `EXISTS` match against event kind/difficulty/environment/source label. Filters are combined in SQL. No browser-supplied workspace identifier is accepted.
 
+The 2026-09-15 additive directory migration installs `unaccent` in `extensions`
+and a private `ihear.patient_search` configuration with two expression GIN indexes.
+Plain queries tokenize and quote each lexeme before applying prefix matching,
+requiring all words within the profile text or one event's text. Explicit quoted
+phrases, OR and exclusions retain web-search semantics. Both indexed text and
+query text use the same accent normalization. Exact follow-up dates use an
+explicit calendar-date branch. The function's signature, SECURITY INVOKER mode,
+workspace predicates and existing grants are preserved. Existing search vectors,
+records, profile versions and report revisions are not rewritten. A prior app
+can run against this additive schema; an app rollback leaves it installed.
+
+Implementation references: [Supabase full-text search](https://supabase.com/docs/guides/database/full-text-search)
+and [PostgreSQL unaccent](https://www.postgresql.org/docs/17/unaccent.html).
+
 ## RLS and tenant isolation
 
 RLS is enabled and forced on every `ihear` table as defense in depth, with no browser policies. `anon` and `authenticated` have no schema, table, sequence, or function privileges. The application resolves a hashed capability first, then includes the resulting `workspace_id` and optional `patient_id` in every query. Composite foreign keys enforce that referenced rows share a workspace and patient. The private Storage buckets have no browser policies; only trusted server/worker service credentials operate on objects.

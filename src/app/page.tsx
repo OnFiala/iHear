@@ -11,7 +11,7 @@ export default function Landing() {
         <section className="hero page-width">
           <div className="hero-copy">
             <h1>A simple<br />listening log.</h1>
-            <p className="lead">Record a moment. Review it at your next visit.</p>
+            <p className="lead">Capture everyday listening. Give your audiologist a clearer picture at your next visit.</p>
             <div className="hero-actions">
               <Link className="button" href="/app">Patient app <ArrowRight size={19} /></Link>
               <Link className="button secondary" href="/clinic">Clinician demo <ArrowRight size={19} /></Link>
@@ -19,7 +19,7 @@ export default function Landing() {
             <p className="hero-note">Illustrative demo</p>
           </div>
           <div className="hero-art">
-            <Image src="/listening-glass.png" alt="Two curved translucent glass forms in sage and peach" fill preload sizes="(max-width: 760px) 100vw, 55vw" />
+            <Image src="/listening-ear.webp" alt="A blue ear with two sound waves — the iHear listening symbol" fill preload unoptimized sizes="(max-width: 760px) 100vw, 55vw" />
           </div>
         </section>
         <section id="how-it-works" className="landing-steps page-width" aria-label="How it works">

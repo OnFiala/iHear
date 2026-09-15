@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { Analysis, ListeningEvent, ProfileInput } from "@/lib/types";
 import { dateLabel } from "@/lib/client/api";
+import { BrandMark } from "./brand-mark";
 import {
   digitalLevelHeight,
   modelStatus,
@@ -18,7 +19,7 @@ import {
 export function Brand() {
   return (
     <Link href="/" className="brand" aria-label="iHear home">
-      iHear
+      <BrandMark /><span>iHear</span>
     </Link>
   );
 }

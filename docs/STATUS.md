@@ -1,5 +1,28 @@
 # Implementation status
 
+## Listening identity and patient directory — validated locally, 2026-09-15
+
+The main model personally replaced the abstract hero with a recognizable cobalt
+ear/sound illustration and matching vector header/app marks. The packaged WebP
+renders without the image optimizer. The directory has a prominent full-text
+search field, compact name/note rows, collapsible filters with an active count,
+one-click reset, name/date/moment sorting and 25-row pages. Exact follow-up-date
+matching is repaired. Partial words and omitted accents now match patient names,
+notes and event descriptions through PostgreSQL. Existing query grants, workspace
+isolation, records and clinical revisions are preserved by an additive migration.
+
+Production build/typecheck, 41 Node tests, six PostgreSQL suites and database
+lint/advisors passed. Thirteen browser scenarios passed, with the seven affected
+layout/accessibility scenarios rerun after the final spacing adjustment. Personal
+browser review includes a local 13-profile synthetic directory, accent-free name
+search, desktop/mobile layouts, and the new hero. No provider call, physical-phone
+test or new acoustic-pipeline test is claimed for this change.
+
+Private release is being prepared against the verified previous `f4f3b962` runtime.
+Both entries will close for the update, with previous artifacts and data backed up.
+Rollback restores the prior app/build while retaining the compatible additive
+search schema and existing data. Interpretation API use remains disabled.
+
 ## Main-model frontend review — privately deployed, 2026-09-14
 
 The main model personally audited and repaired the directory, forms, patient

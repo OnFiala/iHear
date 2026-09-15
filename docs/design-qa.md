@@ -1,4 +1,37 @@
-# Frontend review — 2026-09-14
+# Frontend review
+
+## Listening identity and directory — 2026-09-15
+
+The owner requested a recognizable logo and a less spread-out patient directory.
+The main model authored the changes and personally reviewed the browser without
+delegation. The original whole-word-only search failed for an incomplete name in
+the live owner session. Real local PostgreSQL checks cover name prefixes, names
+without diacritics, notes, event descriptions, exact dates, combined filters,
+web-search operators and tenant/role denial. Test fixtures roll back; no provider
+call or recording is needed.
+
+The new ear/sound hero is a packaged 960-pixel WebP, inspected in the actual
+layout. Header and app marks share the ear motif. Search is prominent; labelled
+filters expand on request. Compact rows include names, one-line note context,
+follow-up, count and latest result. Sorting, reset and 25-row pagination were
+tested with 28 explicit UI fixtures. Personal review used 13 synthetic profiles
+with the actual backend, including an accent-free prefix finding a full name.
+No fixture data was seeded remotely.
+
+41 Node tests, six PostgreSQL suites, production build/typecheck and Supabase
+lint/advisors passed. Thirteen browser scenarios passed; seven affected scenarios
+were rerun after personal spacing corrections. The final directory test also
+verifies that changing the date field submits the selected calendar date.
+Geometry is measured after returning the page to the top, at widths
+360/390/545/768/1280. Ordinary short-name rows are under 85 px desktop and 115 px
+mobile, the first row starts above 380 px and no horizontal overflow occurs.
+Long names, focus, error recovery, loaded hero bytes and Chromium/WebKit
+accessibility were checked. These are not physical-device measurements.
+
+Operator screenshots and receipts remain in ignored private evidence. The old
+glass illustration is retained as history, not the active identity.
+
+## Previous review — 2026-09-14
 
 The owner requested a personal review and implementation by the main model.
 No work in this review was delegated. Clear Signal, its original glass illustration

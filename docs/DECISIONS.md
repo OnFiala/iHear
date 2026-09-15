@@ -42,6 +42,17 @@ access, paid add-ons, or changes to sibling services.
 - Public proprietary GitHub repository OnFiala/iHear; no public application deployment in this milestone.
 - USD 20 total / USD 3 daily Astra ceilings; 5 live analysed events per profile/day; worker concurrency 1; 10-second audio target.
 
+## 2026-09-15: clearer listening identity and compact patient directory
+
+The owner requested an understandable logo and a more usable, less spread-out
+patient directory with full-text search. The main model authored these changes
+personally. The Clear Signal palette stays; a recognizable cobalt ear with sound
+waves replaces the original abstract glass image and unifies the header and app
+icons. Search becomes prominent, accepts word prefixes and omitted diacritics,
+and retains database workspace isolation. Filters expand on request, and compact
+rows support sorting and pagination. The existing private deployment authority
+continues; interpretation API use remains off.
+
 ## 2026-09-13 clarification: AI interpretation for clinician and patient
 
 The owner clarified that the intended AI layer combines acoustic analysis,
