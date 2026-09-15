@@ -1,6 +1,6 @@
 # Implementation status
 
-## Patient demo entry — verified candidate, 2026-09-15
+## Patient demo entry — privately deployed, 2026-09-15
 
 An unpaired visitor can create an explicitly fictional example profile from
 Patient app, confirm it and use the real recording workflow without a QR code.
@@ -15,7 +15,19 @@ verified a ready acoustic analysis, clinician visibility and cross-owner denial.
 Explicit failure fixtures cover reload recovery without duplicate creation.
 The main model authored and visually checked the change; independent security
 review accepted the source after the reload persistence repair. See design-qa.md.
-This candidate is not yet a deployment claim; the prior live identity is below.
+Application `4e5cb96e4910c246674294589b0a4763e254d19a`, Next build
+`sEdxQLNI3KVV7kN9Pf9Oa`, is deployed on the same owner-only domain. Fresh source,
+artifact, running worker descriptor and root domain checks agree; both web entries
+and the connector are healthy. All prior row hashes are preserved: 12 profiles,
+28 events/analyses and six reports; zero unfinished jobs, raw audio or provider
+calls. No remote test profile was created. The existing owner browser retains its
+paired patient and opens the recording controls after reloading the deployed app.
+The new unpaired journey was verified locally, not by replacing that live pairing.
+
+Rollback retains the exact `f863997` source, build/image and protected bindings;
+no database reset or migration is involved. Temporary local web/browser sessions
+were stopped and the viewport restored. This section supersedes the earlier
+application identity below.
 
 ## Quiet surfaces and challenge readiness — 2026-09-15
 
